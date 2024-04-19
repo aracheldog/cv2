@@ -11,6 +11,7 @@ import numpy as np
 import os
 from PIL import Image
 import torch
+torch.cuda.empty_cache()
 from torch.nn import CrossEntropyLoss, DataParallel
 from torch.optim import SGD
 from torch.utils.data import DataLoader
