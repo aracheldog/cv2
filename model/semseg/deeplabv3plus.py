@@ -47,14 +47,23 @@ class DeepLabV3Plus(BaseNet):
 
         self.attention = SelfAttention(48 + high_level_channels // 8)
 
-        self.fuse = nn.Sequential(nn.Conv2d(high_level_channels // 8 + 48, 256, 3, padding=1, bias=False),
-                                  nn.BatchNorm2d(256),
-                                  nn.ReLU(True),
-
-                                  nn.Conv2d(256, 256, 3, padding=1, bias=False),
-                                  nn.BatchNorm2d(256),
-                                  nn.ReLU(True),
-                                  nn.Dropout(0.1, False))
+        # self.fuse = nn.Sequential(nn.Conv2d(high_level_channels // 8 + 48, 256, 3, padding=1, bias=False),
+        #                           nn.BatchNorm2d(256),
+        #                           nn.ReLU(True),
+        #
+        #                           nn.Conv2d(256, 256, 3, padding=1, bias=False),
+        #                           nn.BatchNorm2d(256),
+        #                           nn.ReLU(True),
+        #                           nn.Dropout(0.1, False))
+        self.fuse = nn.Sequential(
+            nn.Conv2d((high_level_channels // 8 + 48) * 2, 256, 3, padding=1, bias=False),  # Adjusted input channels
+            nn.BatchNorm2d(256),
+            nn.ReLU(True),
+            nn.Conv2d(256, 256, 3, padding=1, bias=False),
+            nn.BatchNorm2d(256),
+            nn.ReLU(True),
+            nn.Dropout(0.1, False)
+        )
 
         self.classifier = nn.Conv2d(256, nclass, 1, bias=True)
 
@@ -67,14 +76,10 @@ class DeepLabV3Plus(BaseNet):
         c4 = F.interpolate(c4, size=c1.shape[-2:], mode="bilinear", align_corners=True)
 
         c1 = self.reduce(c1)
-
         c1_and_c4 = torch.cat([c1, c4], dim=1)
-
         c1_and_c4_attended = self.attention(c1_and_c4)
-
         out = torch.cat([c1_and_c4, c1_and_c4_attended], dim=1)
         out = self.fuse(out)
-
         out = self.classifier(out)
         out = F.interpolate(out, size=(h, w), mode="bilinear", align_corners=True)
 

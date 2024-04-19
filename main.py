@@ -2,6 +2,7 @@ from dataset.semi import SemiDataset
 from model.semseg.deeplabv2 import DeepLabV2
 from model.semseg.deeplabv3plus import DeepLabV3Plus
 from model.semseg.pspnet import PSPNet
+# from torchsummary import summary
 from utils import count_params, meanIOU, color_map
 
 import argparse
@@ -169,10 +170,12 @@ def init_basic_elems(args):
     model = model_zoo[args.model](args.backbone, 21 if args.dataset == 'pascal' else 19)
 
     head_lr_multiple = 10.0
+
     if args.model == 'deeplabv2':
         assert args.backbone == 'resnet101'
         model.load_state_dict(torch.load('pretrained/deeplabv2_resnet101_coco_pretrained.pth'))
         head_lr_multiple = 1.0
+
 
     optimizer = SGD([{'params': model.backbone.parameters(), 'lr': args.lr},
                      {'params': [param for name, param in model.named_parameters()
@@ -204,9 +207,10 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
         total_loss = 0.0
         tbar = tqdm(trainloader)
 
+        # input image shape is torch.Size([16, 3, 321, 321])
         for i, (img, mask) in enumerate(tbar):
             img, mask = img.cuda(), mask.cuda()
-
+            # print(summary(model, (3, 321, 321), 16))
             pred = model(img)
             loss = criterion(pred, mask)
 
