@@ -18,7 +18,9 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
-print("Number of available GPUs:", torch.cuda.device_count())
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(device)
 
 MODE = None
 
@@ -186,7 +188,8 @@ def init_basic_elems(args):
                       'lr': args.lr * head_lr_multiple}],
                     lr=args.lr, momentum=0.9, weight_decay=1e-4)
 
-    model = DataParallel(model).cuda()
+    model = DataParallel(model)
+    model.to(device)
 
     return model, optimizer
 
@@ -212,7 +215,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
 
         # input image shape is torch.Size([16, 3, 321, 321])
         for i, (img, mask) in enumerate(tbar):
-            img, mask = img.cuda(), mask.cuda()
+            img, mask = img.to(device), mask.to(device)
             # print(summary(model, (3, 321, 321), 16))
             pred = model(img)
             loss = criterion(pred, mask)
@@ -237,7 +240,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
 
         with torch.no_grad():
             for img, mask, _ in tbar:
-                img = img.cuda()
+                img = img.to(device)
                 pred = model(img)
                 pred = torch.argmax(pred, dim=1)
 
@@ -277,7 +280,7 @@ def select_reliable(models, dataloader, args):
 
     with torch.no_grad():
         for img, mask, id in tbar:
-            img = img.cuda()
+            img = img.to(device)
 
             preds = []
             for model in models:
@@ -310,7 +313,7 @@ def label(model, dataloader, args):
 
     with torch.no_grad():
         for img, mask, id in tbar:
-            img = img.cuda()
+            img = img.to(device)
             pred = model(img, True)
             pred = torch.argmax(pred, dim=1).cpu()
 
