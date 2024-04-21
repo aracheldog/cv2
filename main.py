@@ -12,6 +12,7 @@ from model.semseg.pspnet import PSPNet
 from utils import count_params, meanIOU, color_map
 import warnings
 warnings.filterwarnings("ignore")
+
 import argparse
 from copy import deepcopy
 import numpy as np
@@ -28,7 +29,7 @@ from tqdm import tqdm
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # print("here are the all the devices: ", device)
 # torch.cuda.empty_cache()
-
+torch.set_warn_always(True)
 MODE = None
 
 def parse_args():
