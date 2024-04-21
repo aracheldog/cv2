@@ -16,7 +16,6 @@ import numpy as np
 import os
 from PIL import Image
 import torch
-
 from torch.nn import CrossEntropyLoss, DataParallel
 from torch.optim import SGD
 from torch.utils.data import DataLoader, DistributedSampler
@@ -29,9 +28,6 @@ from tqdm import tqdm
 # torch.cuda.empty_cache()
 
 MODE = None
-
-
-
 
 def parse_args():
     parser = argparse.ArgumentParser(description='ST and ST++ Framework')
@@ -84,7 +80,7 @@ def main(args):
     torch.manual_seed(SEED)
     torch.cuda.manual_seed(SEED)
     torch.cuda.manual_seed_all(SEED)
-
+    print(torch.cuda.is_available())
     cudnn.enabled = True
     cudnn.benchmark = True
 
