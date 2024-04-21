@@ -281,7 +281,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
 
         model.eval()
         tbar = tqdm(valloader)
-
+        torch.cuda.empty_cache()
         with torch.no_grad():
             for img, mask, _ in tbar:
                 img = img.cuda()
