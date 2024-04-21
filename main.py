@@ -57,7 +57,7 @@ def parse_args():
     parser.add_argument('--plus', dest='plus', default=False, action='store_true',
                         help='whether to use ST++')
 
-    parser.add_argument("--local_rank", type=int, default=-1)
+    parser.add_argument("--first", type=int, default=2)
 
     args = parser.parse_args()
     return args
@@ -197,7 +197,7 @@ def init_basic_elems(args):
                     lr=args.lr, momentum=0.9, weight_decay=1e-4)
 
     # model = DataParallel(model)
-    model = BalancedDataParallel(2, model, dim=0)
+    model = BalancedDataParallel(args.first, model, dim=0)
     model.to(device)
 
 
