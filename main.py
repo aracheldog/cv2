@@ -55,7 +55,14 @@ MODE = None
 #
 #     return stacked_images, stacked_masks, ids
 def collate_fn(batch):
-  return torch.stack([x[1] for x in batch]),torch.tensor([x[2] for x in batch]),[x[3] for x in batch]
+    # Extract tensors from batch
+    images = [x[0] for x in batch]
+    labels = [x[1] for x in batch]
+
+    # Concatenate tensors using torch.cat
+    images = torch.cat(images, dim=0)
+    labels = torch.cat(labels, dim=0)
+    return images, labels, [x[3] for x in batch]
 
 
 def parse_args():
