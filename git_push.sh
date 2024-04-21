@@ -1,7 +1,6 @@
 #!/bin/bash
 
-# Navigate to your Git repository directory
-cd /path/to/your/repository
+
 
 # Add all changes
 git add .
