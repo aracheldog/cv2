@@ -370,6 +370,8 @@ def label(model, dataloader, args):
             pred.save('%s/%s' % (args.pseudo_mask_path, os.path.basename(id[0].split(' ')[1])))
 
             tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
+
+
 import torch
 from torch.nn.parallel.data_parallel import DataParallel
 from torch.nn.parallel.parallel_apply import parallel_apply
@@ -439,7 +441,9 @@ class BalancedDataParallel(DataParallel):
             device_ids = self.device_ids
 
         if inputs[0].size()[0] == 1:
-            return self.module(*inputs, **kwargs)
+            cuda_device = random.randint(0, 4)
+            with torch.cuda.device(cuda_device):
+                return self.module(*inputs, **kwargs)
         inputs, kwargs = self.scatter(inputs, kwargs, device_ids)
         if len(self.device_ids) == 1:
             return self.module(*inputs[0], **kwargs[0])
