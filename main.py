@@ -53,7 +53,8 @@ def parse_args():
     parser.add_argument('--reliable-id-path', type=str)
     parser.add_argument('--plus', dest='plus', default=False, action='store_true',
                         help='whether to use ST++')
-    parser.add_argument("--local_rank", type=int, default=-1)
+
+    parser.add_argument("--local-rank", type=int, default=-1)
 
     args = parser.parse_args()
     return args
