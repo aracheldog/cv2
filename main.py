@@ -84,6 +84,7 @@ def parse_args():
                         help='whether to use ST++')
 
     parser.add_argument("--first", type=int, default=2)
+    parser.add_argument("--local_rank", type=int, default=-1)
 
     args = parser.parse_args()
     return args
@@ -96,6 +97,13 @@ def main(args):
         os.makedirs(args.pseudo_mask_path)
     if args.plus and args.reliable_id_path is None:
         exit('Please specify reliable-id-path in ST++.')
+
+    # 每个进程根据自己的local_rank设置应该使用的GPU
+    torch.cuda.set_device(args.local_rank)
+    #device = torch.device('cuda', args.local_rank)
+
+    # 初始化分布式环境，主要用来帮助进程间通信
+    torch.distributed.init_process_group(backend='nccl')
 
     criterion = CrossEntropyLoss(ignore_index=255)
 
@@ -174,9 +182,7 @@ def init_basic_elems(args):
                     lr=args.lr, momentum=0.9, weight_decay=1e-4)
 
     # model = DataParallel(model)
-    model = BalancedDataParallel(args.first, model, dim=0)
-    model.to(device)
-
+    # model = BalancedDataParallel(args.first, model, dim=0)
 
     return model, optimizer
 
@@ -191,6 +197,10 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
 
     if MODE == 'train':
         checkpoints = []
+    model.to(device)
+
+    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[torch.distributed.get_rank()],
+                                                      output_device=torch.distributed.get_rank(), find_unused_parameters=False)
 
     for epoch in range(args.epochs):
         print("\n==> Epoch %i, learning rate = %.4f\t\t\t\t\t previous best = %.2f" %
