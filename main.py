@@ -277,7 +277,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
         with torch.no_grad():
             for img, mask, _ in tbar:
                 img = img.to(device)
-                print(img.shape)
+
                 pred = model(img)
                 pred = torch.argmax(pred, dim=1)
 
