@@ -82,6 +82,8 @@ def main(args):
     torch.cuda.manual_seed(SEED)
     torch.cuda.manual_seed_all(SEED)
 
+    cudnn.enabled = True
+    cudnn.benchmark = True
 
 
     model = DeepLabV3Plus(args.backbone, 21)
@@ -109,13 +111,13 @@ def main(args):
     trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size, args.labeled_id_path)
     trainset.ids = 2 * trainset.ids if len(trainset.ids) < 200 else trainset.ids
     train_sampler = DistributedSampler(trainset)
-    trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
+    trainloader = DataLoader(trainset, batch_size=args.batch_size,
                              pin_memory=True, num_workers=1, drop_last=True, sampler=train_sampler)
 
     valset = SemiDataset(args.dataset, args.data_root, 'val', None)
     val_sampler = DistributedSampler(valset)
     valloader = DataLoader(valset, batch_size=1,
-                           shuffle=False, pin_memory=True, num_workers=1, drop_last=False, sampler=val_sampler)
+                            pin_memory=True, num_workers=1, drop_last=False, sampler=val_sampler)
 
     # <====================== Supervised training with labeled images (SupOnly) ======================>
     if  args.local_rank == 0:
@@ -133,7 +135,7 @@ def main(args):
         print('\n\n\n================> Total stage 2/3: Pseudo labeling all unlabeled images')
 
         dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, args.unlabeled_id_path)
-        dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
+        dataloader = DataLoader(dataset, batch_size=1, pin_memory=True, num_workers=4, drop_last=False)
 
         label(best_model, dataloader, args)
         torch.cuda.empty_cache()
@@ -145,7 +147,7 @@ def main(args):
 
         trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size,
                                args.labeled_id_path, args.unlabeled_id_path, args.pseudo_mask_path)
-        trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
+        trainloader = DataLoader(trainset, batch_size=args.batch_size,
                                  pin_memory=True, num_workers=16, drop_last=True)
 
         model, optimizer = init_basic_elems(args)
