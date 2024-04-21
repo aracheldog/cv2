@@ -74,7 +74,7 @@ def main(args):
     criterion = CrossEntropyLoss(ignore_index=255)
 
     valset = SemiDataset(args.dataset, args.data_root, 'val', None)
-    valloader = DataLoader(valset, batch_size=4 if args.dataset == 'cityscapes' else 1,
+    valloader = DataLoader(valset, batch_size=8 if args.dataset == 'cityscapes' else 1,
                            shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
     # <====================== Supervised training with labeled images (SupOnly) ======================>
