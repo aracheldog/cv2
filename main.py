@@ -28,19 +28,7 @@ torch.cuda.empty_cache()
 MODE = None
 
 
-# 每个进程根据自己的local_rank设置应该使用的GPU
-torch.cuda.set_device(args.local_rank)
-device = torch.device('cuda', args.local_rank)
 
-# 初始化分布式环境，主要用来帮助进程间通信
-torch.distributed.init_process_group(backend='nccl')
-
-
-seed = 42
-random.seed(seed)
-np.random.seed(seed)
-torch.manual_seed(seed)
-torch.cuda.manual_seed_all(seed)
 
 
 def parse_args():
