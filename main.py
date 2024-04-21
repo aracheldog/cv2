@@ -16,10 +16,18 @@ import torch
 
 from torch.nn import CrossEntropyLoss, DataParallel
 from torch.optim import SGD
-from torch.utils.data import DataLoader, DistributedSampler
+from torch.utils.data import DataLoader
 from tqdm import tqdm
+
+
+import torch
+from torch.nn.parallel.data_parallel import DataParallel
+from torch.nn.parallel.parallel_apply import parallel_apply
+from torch.nn.parallel._functions import Scatter
+
+
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("here are the all the devices: ", device)
@@ -53,8 +61,7 @@ def parse_args():
     parser.add_argument('--reliable-id-path', type=str)
     parser.add_argument('--plus', dest='plus', default=False, action='store_true',
                         help='whether to use ST++')
-
-    parser.add_argument("--local-rank", type=int, default=-1)
+    parser.add_argument("--local_rank", type=int, default=-1)
 
     args = parser.parse_args()
     return args
@@ -71,13 +78,8 @@ def main(args):
     criterion = CrossEntropyLoss(ignore_index=255)
 
     valset = SemiDataset(args.dataset, args.data_root, 'val', None)
-    # valloader = DataLoader(valset, batch_size=4 if args.dataset == 'cityscapes' else 1,
-    #                        shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
-    vel_sampler = DistributedSampler(valset)
-    valloader = DataLoader(valset, sampler=vel_sampler, batch_size = 4, shuffle=False,
-                             pin_memory=True,  num_workers=4, drop_last=False)
-
-
+    valloader = DataLoader(valset, batch_size=4 if args.dataset == 'cityscapes' else 1,
+                           shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
     # <====================== Supervised training with labeled images (SupOnly) ======================>
     print('\n================> Total stage 1/%i: '
@@ -88,12 +90,8 @@ def main(args):
 
     trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size, args.labeled_id_path)
     trainset.ids = 2 * trainset.ids if len(trainset.ids) < 200 else trainset.ids
-
-    train_sampler = DistributedSampler(trainset)
-    trainloader = DataLoader(trainset, sampler=train_sampler, batch_size=args.batch_size, shuffle=False,pin_memory=True, drop_last=True)
-
-    # trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
-    #                          pin_memory=True, num_workers=16, drop_last=True)
+    trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
+                             pin_memory=True, num_workers=16, drop_last=True)
 
     model, optimizer = init_basic_elems(args)
     print('\nParams: %.1fM' % count_params(model))
@@ -108,10 +106,8 @@ def main(args):
         print('\n\n\n================> Total stage 2/3: Pseudo labeling all unlabeled images')
 
         dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, args.unlabeled_id_path)
-        # dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
-        train_sampler = DistributedSampler(dataset, shuffle=False)
-        dataloader = DataLoader(dataset, sampler=train_sampler, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
-
+        
+        dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
         label(best_model, dataloader, args)
 
@@ -122,12 +118,8 @@ def main(args):
 
         trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size,
                                args.labeled_id_path, args.unlabeled_id_path, args.pseudo_mask_path)
-        train_sampler = DistributedSampler(trainset)
-        trainloader = DataLoader(trainset, sampler=train_sampler, batch_size=args.batch_size, shuffle=False,
-                                 pin_memory=True, drop_last=True)
-
-        # trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
-        #                          pin_memory=True, num_workers=16, drop_last=True)
+        trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
+                                 pin_memory=True, num_workers=16, drop_last=True)
 
         model, optimizer = init_basic_elems(args)
 
@@ -142,10 +134,7 @@ def main(args):
     print('\n\n\n================> Total stage 2/6: Select reliable images for the 1st stage re-training')
 
     dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, args.unlabeled_id_path)
-    # dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
-
-    dataset_sampler = DistributedSampler(dataset, shuffle= False)
-    dataloader = DataLoader(dataset, sampler=dataset_sampler, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
     select_reliable(checkpoints, dataloader, args)
 
@@ -154,11 +143,7 @@ def main(args):
 
     cur_unlabeled_id_path = os.path.join(args.reliable_id_path, 'reliable_ids.txt')
     dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, cur_unlabeled_id_path)
-    # dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
-
-    dataset_sampler = DistributedSampler(dataset, shuffle=False)
-    dataloader = DataLoader(dataset, sampler=dataset_sampler, batch_size=1, shuffle=False, pin_memory=True,
-                            num_workers=4, drop_last=False)
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
     label(best_model, dataloader, args)
 
@@ -169,10 +154,7 @@ def main(args):
 
     trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size,
                            args.labeled_id_path, cur_unlabeled_id_path, args.pseudo_mask_path)
-    # trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
-    #                          pin_memory=True, num_workers=16, drop_last=True)
-    train_sampler = DistributedSampler(trainset)
-    trainloader = DataLoader(trainset, sampler=train_sampler, batch_size=args.batch_size, shuffle=False,
+    trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
                              pin_memory=True, num_workers=16, drop_last=True)
 
     model, optimizer = init_basic_elems(args)
@@ -184,9 +166,8 @@ def main(args):
 
     cur_unlabeled_id_path = os.path.join(args.reliable_id_path, 'unreliable_ids.txt')
     dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, cur_unlabeled_id_path)
-    # dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
-    dataset_sampler = DistributedSampler(dataset, shuffle=False)
-    dataloader = DataLoader(dataset, sampler=dataset_sampler,batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
+
     label(best_model, dataloader, args)
 
     # <================================== The 2nd stage re-training ==================================>
@@ -194,12 +175,8 @@ def main(args):
 
     trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size,
                            args.labeled_id_path, args.unlabeled_id_path, args.pseudo_mask_path)
-    # trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
-    #                          pin_memory=True, num_workers=16, drop_last=True)
-    train_sampler = DistributedSampler(trainset)
-    trainloader = DataLoader(trainset, sampler=train_sampler, batch_size=args.batch_size, shuffle=False,
-                             pin_memory=True, drop_last=True)
-
+    trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
+                             pin_memory=True, num_workers=16, drop_last=True)
 
     model, optimizer = init_basic_elems(args)
 
@@ -224,11 +201,8 @@ def init_basic_elems(args):
                       'lr': args.lr * head_lr_multiple}],
                     lr=args.lr, momentum=0.9, weight_decay=1e-4)
 
+    model = BalancedDataParallel(2, model, dim=0).to(device)
     model.to(device)
-    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank],
-                                                      output_device=args.local_rank, find_unused_parameters=True)
-    # model = DataParallel(model)
-    # model.to(device)
 
     return model, optimizer
 
@@ -365,6 +339,98 @@ def label(model, dataloader, args):
             pred.save('%s/%s' % (args.pseudo_mask_path, os.path.basename(id[0].split(' ')[1])))
 
             tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
+
+
+
+
+def scatter(inputs, target_gpus, chunk_sizes, dim=0):
+    r"""
+    Slices tensors into approximately equal chunks and
+    distributes them across given GPUs. Duplicates
+    references to objects that are not tensors.
+    """
+
+    def scatter_map(obj):
+        if isinstance(obj, torch.Tensor):
+            try:
+                return Scatter.apply(target_gpus, chunk_sizes, dim, obj)
+            except Exception:
+                print('obj', obj.size())
+                print('dim', dim)
+                print('chunk_sizes', chunk_sizes)
+                quit()
+        if isinstance(obj, tuple) and len(obj) > 0:
+            return list(zip(*map(scatter_map, obj)))
+        if isinstance(obj, list) and len(obj) > 0:
+            return list(map(list, zip(*map(scatter_map, obj))))
+        if isinstance(obj, dict) and len(obj) > 0:
+            return list(map(type(obj), zip(*map(scatter_map, obj.items()))))
+        return [obj for targets in target_gpus]
+
+    # After scatter_map is called, a scatter_map cell will exist. This cell
+    # has a reference to the actual function scatter_map, which has references
+    # to a closure that has a reference to the scatter_map cell (because the
+    # fn is recursive). To avoid this reference cycle, we set the function to
+    # None, clearing the cell
+    try:
+        return scatter_map(inputs)
+    finally:
+        scatter_map = None
+
+
+def scatter_kwargs(inputs, kwargs, target_gpus, chunk_sizes, dim=0):
+    """Scatter with support for kwargs dictionary"""
+    inputs = scatter(inputs, target_gpus, chunk_sizes, dim) if inputs else []
+    kwargs = scatter(kwargs, target_gpus, chunk_sizes, dim) if kwargs else []
+    if len(inputs) < len(kwargs):
+        inputs.extend([() for _ in range(len(kwargs) - len(inputs))])
+    elif len(kwargs) < len(inputs):
+        kwargs.extend([{} for _ in range(len(inputs) - len(kwargs))])
+    inputs = tuple(inputs)
+    kwargs = tuple(kwargs)
+    return inputs, kwargs
+
+
+class BalancedDataParallel(DataParallel):
+
+    def __init__(self, gpu0_bsz, *args, **kwargs):
+        self.gpu0_bsz = gpu0_bsz
+        super().__init__(*args, **kwargs)
+
+    def forward(self, *inputs, **kwargs):
+        if not self.device_ids:
+            return self.module(*inputs, **kwargs)
+        if self.gpu0_bsz == 0:
+            device_ids = self.device_ids[1:]
+        else:
+            device_ids = self.device_ids
+        inputs, kwargs = self.scatter(inputs, kwargs, device_ids)
+        if len(self.device_ids) == 1:
+            return self.module(*inputs[0], **kwargs[0])
+        replicas = self.replicate(self.module, self.device_ids)
+        if self.gpu0_bsz == 0:
+            replicas = replicas[1:]
+        outputs = self.parallel_apply(replicas, device_ids, inputs, kwargs)
+        return self.gather(outputs, self.output_device)
+
+    def parallel_apply(self, replicas, device_ids, inputs, kwargs):
+        return parallel_apply(replicas, inputs, kwargs, device_ids)
+
+    def scatter(self, inputs, kwargs, device_ids):
+        bsz = inputs[0].size(self.dim)
+        num_dev = len(self.device_ids)
+        gpu0_bsz = self.gpu0_bsz
+        bsz_unit = (bsz - gpu0_bsz) // (num_dev - 1)
+        if gpu0_bsz < bsz_unit:
+            chunk_sizes = [gpu0_bsz] + [bsz_unit] * (num_dev - 1)
+            delta = bsz - sum(chunk_sizes)
+            for i in range(delta):
+                chunk_sizes[i + 1] += 1
+            if gpu0_bsz == 0:
+                chunk_sizes = chunk_sizes[1:]
+        else:
+            return super().scatter(inputs, kwargs, device_ids)
+        return scatter_kwargs(inputs, kwargs, device_ids, chunk_sizes, dim=self.dim)
 
 
 if __name__ == '__main__':
