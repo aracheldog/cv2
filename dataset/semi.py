@@ -41,7 +41,7 @@ class SemiDataset(Dataset):
         else:
             if mode == 'val':
                 id_path = 'dataset/splits/%s/val.txt' % name
-            elif mode == 'label':
+            elif mode == 'label' or mode == 'train_u':
                 id_path = unlabeled_id_path
             elif mode == 'train':
                 id_path = labeled_id_path
