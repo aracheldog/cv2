@@ -29,13 +29,10 @@ MODE = None
 
 
 def collate_fn(batch):
-  print(batch, len(batch))
-  print()
-  return {
-      'pixel_values': torch.stack([x['pixel_values'] for x in batch]),
-      'labels': torch.tensor([x['labels'] for x in batch])
-}
-
+    images = [item[0] for item in batch]
+    labels = [item[1] for item in batch]
+    stacked_labels = torch.stack(labels)
+    return images, stacked_labels
 
 def parse_args():
     parser = argparse.ArgumentParser(description='ST and ST++ Framework')
