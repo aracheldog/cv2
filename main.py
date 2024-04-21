@@ -99,8 +99,8 @@ def main(args):
     criterion = CrossEntropyLoss(ignore_index=255)
 
     valset = SemiDataset(args.dataset, args.data_root, 'val', None)
-    valloader = DataLoader(valset, batch_size=8,
-                           shuffle=False, pin_memory=True, num_workers=4, drop_last=False, collate_fn= collate_fn)
+    valloader = DataLoader(valset, batch_size=1,
+                           shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
     # <====================== Supervised training with labeled images (SupOnly) ======================>
     print('\n================> Total stage 1/%i: '
@@ -276,8 +276,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
 
         with torch.no_grad():
             for img, mask, _ in tbar:
-                img = img.to(device)
-
+                img = img.device("cuda:1")
                 pred = model(img)
                 pred = torch.argmax(pred, dim=1)
 
