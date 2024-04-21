@@ -224,10 +224,11 @@ def init_basic_elems(args):
                       'lr': args.lr * head_lr_multiple}],
                     lr=args.lr, momentum=0.9, weight_decay=1e-4)
 
+    model.to(device)
     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank],
                                                       output_device=args.local_rank, find_unused_parameters=True)
     # model = DataParallel(model)
-    model.to(device)
+    # model.to(device)
 
     return model, optimizer
 
