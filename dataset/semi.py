@@ -71,6 +71,9 @@ class SemiDataset(Dataset):
         img, mask = crop(img, mask, self.size)
         img, mask = hflip(img, mask, p=0.5)
 
+        if self.mode == 'train_u':
+            return normalize(img)
+
         # strong augmentation on unlabeled images
         if self.mode == 'semi_train' and id in self.unlabeled_ids:
             if random.random() < 0.8:

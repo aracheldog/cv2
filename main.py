@@ -121,7 +121,7 @@ def main(args):
     valloader = DataLoader(valset, batch_size=1,
                             pin_memory=True, num_workers=1, drop_last=False, sampler=val_sampler)
 
-    dataset_u = SemiDataset(args.dataset, args.data_root, 'label', None, None, args.unlabeled_id_path)
+    dataset_u = SemiDataset(args.dataset, args.data_root, 'train_u', None, None, args.unlabeled_id_path)
     dataset_u_sampler = DistributedSampler(dataset_u)
     dataloader = DataLoader(dataset_u, batch_size=1, pin_memory=True, num_workers=1, drop_last=False, sampler=dataset_u_sampler)
 
