@@ -27,34 +27,6 @@ torch.cuda.empty_cache()
 
 MODE = None
 
-import torch.nn.functional as F
-
-def collate_fn(batch):
-    # Separate the samples into lists of images and masks
-    images = [item[0] for item in batch]
-    masks = [item[1] for item in batch]
-
-    # Find the maximum width and maximum height among all images
-    max_height = max(img.size(1) for img in images)
-    max_width = max(img.size(2) for img in images)
-
-    # Resize images and masks to the same height
-    resized_images = []
-    resized_masks = []
-    for img, mask in zip(images, masks):
-        # Resize image
-        resized_img = F.interpolate(img.unsqueeze(0), size=(max_height, max_width), mode='bilinear', align_corners=False)
-        # Resize mask
-        resized_mask = F.interpolate(mask.unsqueeze(0), size=(max_height, max_width), mode='nearest')
-        resized_images.append(resized_img.squeeze(0))
-        resized_masks.append(resized_mask.squeeze(0))
-
-    # Stack resized images and masks
-    stacked_images = torch.stack(resized_images)
-    stacked_masks = torch.stack(resized_masks)
-
-    return stacked_images, stacked_masks
-
 
 
 
@@ -101,8 +73,8 @@ def main(args):
     criterion = CrossEntropyLoss(ignore_index=255)
 
     valset = SemiDataset(args.dataset, args.data_root, 'val', None)
-    valloader = DataLoader(valset, batch_size=args.batch_size,
-                           shuffle=False, pin_memory=True, num_workers=0, drop_last=False, collate_fn=collate_fn)
+    valloader = DataLoader(valset, batch_size=1,
+                           shuffle=False, pin_memory=True, num_workers=0, drop_last=False)
 
     # <====================== Supervised training with labeled images (SupOnly) ======================>
     print('\n================> Total stage 1/%i: '
