@@ -246,7 +246,7 @@ def label(model, dataloader, args):
 
     metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 19)
     cmap = color_map(args.dataset)
-
+    device = torch.device('cuda', args.local_rank)
     with torch.no_grad():
         for img, mask, id in tbar:
             img = img.to(device)
