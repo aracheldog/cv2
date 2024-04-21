@@ -106,12 +106,12 @@ def main(args):
     trainset.ids = 2 * trainset.ids if len(trainset.ids) < 200 else trainset.ids
     train_sampler = DistributedSampler(trainset)
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
-                             pin_memory=True, num_workers=16, drop_last=True, sampler=train_sampler)
+                             pin_memory=True, num_workers=1, drop_last=True, sampler=train_sampler)
 
     valset = SemiDataset(args.dataset, args.data_root, 'val', None)
     val_sampler = DistributedSampler(valset)
     valloader = DataLoader(valset, batch_size=1,
-                           shuffle=False, pin_memory=True, num_workers=4, drop_last=False, sampler=val_sampler)
+                           shuffle=False, pin_memory=True, num_workers=1, drop_last=False, sampler=val_sampler)
 
     # <====================== Supervised training with labeled images (SupOnly) ======================>
     if  args.local_rank == 0:
