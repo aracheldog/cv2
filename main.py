@@ -122,7 +122,8 @@ def main(args):
                             pin_memory=True, num_workers=1, drop_last=False, sampler=val_sampler)
 
     dataset_u = SemiDataset(args.dataset, args.data_root, 'label', None, None, args.unlabeled_id_path)
-    dataloader = DataLoader(dataset_u, batch_size=1, pin_memory=True, num_workers=1, drop_last=False)
+    dataset_u_sampler = DistributedSampler(dataset_u)
+    dataloader = DataLoader(dataset_u, batch_size=1, pin_memory=True, num_workers=1, drop_last=False, sampler=dataset_u_sampler)
 
     # <====================== Supervised training with labeled images (SupOnly) ======================>
     if  args.local_rank == 0:
