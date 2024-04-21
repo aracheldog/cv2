@@ -82,8 +82,7 @@ def main(args):
     torch.cuda.manual_seed(SEED)
     torch.cuda.manual_seed_all(SEED)
 
-    cudnn.enabled = True
-    cudnn.benchmark = True
+
 
 
     model = DeepLabV3Plus(args.backbone, 21)
