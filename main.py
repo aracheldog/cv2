@@ -358,7 +358,9 @@ def label(model, dataloader, args):
     with torch.no_grad():
         for img, mask, id in tbar:
             img = img.to(device)
+            torch.cuda.empty_cache()
             pred = model(img, True)
+
             pred = torch.argmax(pred, dim=1).cpu()
 
             metric.add_batch(pred.numpy(), mask.numpy())
@@ -441,9 +443,7 @@ class BalancedDataParallel(DataParallel):
             device_ids = self.device_ids
 
         if inputs[0].size()[0] == 1:
-            cuda_device = random.randint(0, 4)
-            with torch.cuda.device(cuda_device):
-                return self.module(*inputs, **kwargs)
+            return self.module(*inputs, **kwargs)
         inputs, kwargs = self.scatter(inputs, kwargs, device_ids)
         if len(self.device_ids) == 1:
             return self.module(*inputs[0], **kwargs[0])
