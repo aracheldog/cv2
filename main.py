@@ -28,13 +28,7 @@ torch.cuda.empty_cache()
 MODE = None
 
 
-def collate_fn(batch):
-    images = [item[0] for item in batch]
-    labels = [item[1] for item in batch]
-    images = torch.stack(images, dim=0)
-    labels = torch.stack(labels).to(device)
 
-    return images, labels,
 
 def parse_args():
     parser = argparse.ArgumentParser(description='ST and ST++ Framework')
@@ -80,7 +74,7 @@ def main(args):
 
     valset = SemiDataset(args.dataset, args.data_root, 'val', None)
     valloader = DataLoader(valset, batch_size=args.batch_size,
-                           shuffle=False, pin_memory=True, num_workers=4, drop_last=False, collate_fn=collate_fn)
+                           shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
     # <====================== Supervised training with labeled images (SupOnly) ======================>
     print('\n================> Total stage 1/%i: '
@@ -92,7 +86,7 @@ def main(args):
     trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size, args.labeled_id_path)
     trainset.ids = 2 * trainset.ids if len(trainset.ids) < 200 else trainset.ids
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
-                             pin_memory=True, num_workers=16, drop_last=True, collate_fn=collate_fn)
+                             pin_memory=True, num_workers=16, drop_last=True)
 
     model, optimizer = init_basic_elems(args)
     print('\nParams: %.1fM' % count_params(model))
