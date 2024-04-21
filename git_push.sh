@@ -9,4 +9,4 @@ git add .
 git commit -m "Automated commit"
 
 # Push changes to the remote repository
-git push origin main
+git push
