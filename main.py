@@ -1,6 +1,6 @@
 import random
 
-from torch.backends import cudnn
+import torch.backends.cudnn as cudnn
 from torch.testing._internal.common_quantization import AverageMeter
 
 from dataset.semi import SemiDataset
