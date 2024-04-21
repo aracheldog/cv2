@@ -85,11 +85,7 @@ def main(args):
 
 
     model = DeepLabV3Plus(args.backbone, 21)
-    if args.local_rank == 0:
-        print('\nParams: %.1fM' % count_params(model))
-    model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
-    model.cuda(args.local_rank)
-    model = torch.nn.parallel.DistributedDataParallel(model,device_ids=[args.local_rank], output_device=args.local_rank,find_unused_parameters=True)
+
     head_lr_multiple = 10.0
     optimizer = SGD([{'params': model.backbone.parameters(), 'lr': args.lr},
                      {'params': [param for name, param in model.named_parameters()
@@ -97,6 +93,13 @@ def main(args):
                       'lr': args.lr * head_lr_multiple}],
                     lr=args.lr, momentum=0.9, weight_decay=1e-4)
     criterion = CrossEntropyLoss(ignore_index=255).cuda(args.local_rank)
+
+
+    if args.local_rank == 0:
+        print('\nParams: %.1fM' % count_params(model))
+    model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
+    model.cuda(args.local_rank)
+    model = torch.nn.parallel.DistributedDataParallel(model,device_ids=[args.local_rank], output_device=args.local_rank,find_unused_parameters=True)
 
 
     global MODE
