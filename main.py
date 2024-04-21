@@ -10,7 +10,8 @@ from model.semseg.deeplabv3plus import DeepLabV3Plus
 from model.semseg.pspnet import PSPNet
 # from torchsummary import summary
 from utils import count_params, meanIOU, color_map
-
+import warnings
+warnings.filterwarnings("ignore")
 import argparse
 from copy import deepcopy
 import numpy as np
