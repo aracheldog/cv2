@@ -74,8 +74,8 @@ def main(args):
     criterion = CrossEntropyLoss(ignore_index=255)
 
     valset = SemiDataset(args.dataset, args.data_root, 'val', None)
-    valloader = DataLoader(valset, batch_size=8 if args.dataset == 'cityscapes' else 1,
-                           shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
+    valloader = DataLoader(valset, batch_size=4,
+                           shuffle=False, pin_memory=True, num_workers=2, drop_last=False)
 
     # <====================== Supervised training with labeled images (SupOnly) ======================>
     print('\n================> Total stage 1/%i: '
@@ -102,7 +102,7 @@ def main(args):
         print('\n\n\n================> Total stage 2/3: Pseudo labeling all unlabeled images')
 
         dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, args.unlabeled_id_path)
-        dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
+        dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
         label(best_model, dataloader, args)
 
@@ -251,7 +251,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
         with torch.no_grad():
             for img, mask, _ in tbar:
                 img = img.to(device)
-                print(img.shape)
+                # print(img.shape)
                 pred = model(img)
                 pred = torch.argmax(pred, dim=1)
 
