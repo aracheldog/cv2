@@ -78,9 +78,9 @@ def main(args):
     # torch.cuda.manual_seed(SEED)
     # torch.cuda.manual_seed_all(SEED)
     # print(torch.cuda.is_available())
-
-    cudnn.enabled = True
-    cudnn.benchmark = True
+    with torch.backends.cudnn.flags(enabled=True):
+        cudnn.enabled = True
+        cudnn.benchmark = True
 
     model = DeepLabV3Plus(args.backbone, 21)
     if args.local_rank == 0:
