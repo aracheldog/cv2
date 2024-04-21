@@ -30,27 +30,9 @@ MODE = None
 
 def collate_fn(batch):
     images = [item[0] for item in batch]
-    masks = [item[1] for item in batch]
-    # Find the maximum height and width among all images
-    max_height = max(img.size(1) for img in images)
-    max_width = max(img.size(2) for img in images)
-
-    # Pad images and masks to the same size
-    padded_images = []
-    padded_masks = []
-    for img, mask in zip(images, masks):
-        padded_img = torch.zeros((3, max_height, max_width), dtype=torch.float32)
-        padded_mask = torch.zeros((1, max_height, max_width), dtype=torch.float32)
-        padded_img[:, :img.size(1), :img.size(2)] = img
-        padded_mask[:, :mask.size(1), :mask.size(2)] = mask
-        padded_images.append(padded_img)
-        padded_masks.append(padded_mask)
-
-    # Stack padded images and masks
-    stacked_images = torch.stack(padded_images)
-    stacked_masks = torch.stack(padded_masks)
-
-    return stacked_images, stacked_masks
+    labels = [item[1] for item in batch]
+    images = torch.stack(images, dim=0)
+    return images, labels,
 
 def parse_args():
     parser = argparse.ArgumentParser(description='ST and ST++ Framework')
