@@ -250,8 +250,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
 
         # input image shape is torch.Size([16, 3, 321, 321])
         for i, (img, mask) in enumerate(tbar):
-            if i== 0:
-                print(img.shape)
+
             img, mask = img.to(device), mask.to(device)
             # print(summary(model, (3, 321, 321), 16))
             pred = model(img)
