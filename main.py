@@ -151,64 +151,8 @@ def main(args):
 
         return
 
-    """
-        ST++ framework with selective re-training
-    """
-    # <===================================== Select Reliable IDs =====================================>
-    print('\n\n\n================> Total stage 2/6: Select reliable images for the 1st stage re-training')
 
-    dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, args.unlabeled_id_path)
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
-    select_reliable(checkpoints, dataloader, args)
-    torch.cuda.empty_cache()
-
-    # <================================ Pseudo label reliable images =================================>
-    print('\n\n\n================> Total stage 3/6: Pseudo labeling reliable images')
-
-    cur_unlabeled_id_path = os.path.join(args.reliable_id_path, 'reliable_ids.txt')
-    dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, cur_unlabeled_id_path)
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
-
-    label(best_model, dataloader, args)
-    torch.cuda.empty_cache()
-
-    # <================================== The 1st stage re-training ==================================>
-    print('\n\n\n================> Total stage 4/6: The 1st stage re-training on labeled and reliable unlabeled images')
-
-    MODE = 'semi_train'
-
-    trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size,
-                           args.labeled_id_path, cur_unlabeled_id_path, args.pseudo_mask_path)
-    trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
-                             pin_memory=True, num_workers=24, drop_last=True)
-
-    model, optimizer = init_basic_elems(args)
-
-    best_model = train(model, trainloader, valloader, criterion, optimizer, args)
-    torch.cuda.empty_cache()
-
-    # <=============================== Pseudo label unreliable images ================================>
-    print('\n\n\n================> Total stage 5/6: Pseudo labeling unreliable images')
-
-    cur_unlabeled_id_path = os.path.join(args.reliable_id_path, 'unreliable_ids.txt')
-    dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, cur_unlabeled_id_path)
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
-
-    label(best_model, dataloader, args)
-    torch.cuda.empty_cache()
-
-    # <================================== The 2nd stage re-training ==================================>
-    print('\n\n\n================> Total stage 6/6: The 2nd stage re-training on labeled and all unlabeled images')
-
-    trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size,
-                           args.labeled_id_path, args.unlabeled_id_path, args.pseudo_mask_path)
-    trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
-                             pin_memory=True, num_workers=24, drop_last=True)
-
-    model, optimizer = init_basic_elems(args)
-
-    train(model, trainloader, valloader, criterion, optimizer, args)
 
 
 def init_basic_elems(args):
@@ -312,40 +256,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
     return best_model
 
 
-def select_reliable(models, dataloader, args):
-    if not os.path.exists(args.reliable_id_path):
-        os.makedirs(args.reliable_id_path)
 
-    for i in range(len(models)):
-        models[i].eval()
-    tbar = tqdm(dataloader)
-
-    id_to_reliability = []
-
-    with torch.no_grad():
-        for img, mask, id in tbar:
-            img = img.to(device)
-
-            preds = []
-            for model in models:
-                preds.append(torch.argmax(model(img), dim=1).cpu().numpy())
-
-            mIOU = []
-            for i in range(len(preds) - 1):
-                metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 19)
-                metric.add_batch(preds[i], preds[-1])
-                mIOU.append(metric.evaluate()[-1])
-
-            reliability = sum(mIOU) / len(mIOU)
-            id_to_reliability.append((id[0], reliability))
-
-    id_to_reliability.sort(key=lambda elem: elem[1], reverse=True)
-    with open(os.path.join(args.reliable_id_path, 'reliable_ids.txt'), 'w') as f:
-        for elem in id_to_reliability[:len(id_to_reliability) // 2]:
-            f.write(elem[0] + '\n')
-    with open(os.path.join(args.reliable_id_path, 'unreliable_ids.txt'), 'w') as f:
-        for elem in id_to_reliability[len(id_to_reliability) // 2:]:
-            f.write(elem[0] + '\n')
 
 
 def label(model, dataloader, args):
@@ -357,8 +268,7 @@ def label(model, dataloader, args):
 
     with torch.no_grad():
         for img, mask, id in tbar:
-            # img = img.to(device)
-            # print(img, len(img), len(img[0]), img[0].size())
+            img = img.to(device)
             pred = model(img, True)
 
             pred = torch.argmax(pred, dim=1).cpu()
@@ -374,6 +284,8 @@ def label(model, dataloader, args):
             tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
 
 
+
+# 这下面的是用来控制第一个gpu上跑多少个batch，剩下的gpu上跑多少个batch的
 import torch
 from torch.nn.parallel.data_parallel import DataParallel
 from torch.nn.parallel.parallel_apply import parallel_apply
