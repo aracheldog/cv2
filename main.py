@@ -32,6 +32,7 @@ def collate_fn(batch):
     images = [item[0] for item in batch]
     labels = [item[1] for item in batch]
     stacked_labels = torch.stack(labels)
+    images = torch.stack(images)
     return images, stacked_labels
 
 def parse_args():
