@@ -274,10 +274,10 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
 
         model.eval()
         tbar = tqdm(valloader)
-
+        model.device_ids = ["1"]
         with torch.no_grad():
-            for img, mask, _ in valloader:
-                img = img.to(device)
+            for img, mask, _ in tbar:
+                img = img.cuda()
                 pred = model(img)
                 pred = torch.argmax(pred, dim=1)
 
