@@ -101,11 +101,8 @@ def main(args):
         os.makedirs(args.pseudo_mask_path)
     if args.plus and args.reliable_id_path is None:
         exit('Please specify reliable-id-path in ST++.')
-    # 每个进程根据自己的local_rank设置应该使用的GPU
-    torch.cuda.set_device(args.local_rank)
-    device = torch.device('cuda', args.local_rank)
-    # 初始化分布式环境，主要用来帮助进程间通信
-    torch.distributed.init_process_group(backend='nccl')
+
+
 
     import random
     SEED=args.seed
@@ -122,7 +119,7 @@ def main(args):
     if args.local_rank == 0:
         print('\nParams: %.1fM' % count_params(model))
     model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
-    model.cuda()
+    model.cuda(args.local_rank)
     model = torch.nn.parallel.DistributedDataParallel(model,device_ids=[args.local_rank], output_device=args.local_rank,find_unused_parameters=True)
     head_lr_multiple = 10.0
     optimizer = SGD([{'params': model.backbone.parameters(), 'lr': args.lr},
