@@ -54,15 +54,7 @@ MODE = None
 #     stacked_masks = torch.stack(padded_masks)
 #
 #     return stacked_images, stacked_masks, ids
-def collate_fn(batch):
-    # Extract tensors from batch
-    images = [x[0] for x in batch]
-    labels = [x[1] for x in batch]
 
-    # Concatenate tensors using torch.cat
-    images = torch.cat(images, dim=0)
-    labels = torch.cat(labels, dim=0)
-    return images, labels, [x[3] for x in batch]
 
 
 def parse_args():
@@ -284,7 +276,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
         tbar = tqdm(valloader)
 
         with torch.no_grad():
-            for img, mask, _ in tbar:
+            for img, mask, _ in valloader:
                 img = img.to(device)
                 pred = model(img)
                 pred = torch.argmax(pred, dim=1)
