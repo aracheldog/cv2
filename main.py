@@ -87,7 +87,7 @@ def parse_args():
                         help='whether to use ST++')
 
     parser.add_argument("--first", type=int, default=2)
-    parser.add_argument("--local_rank", type=int, default=-1)
+    parser.add_argument("--local-rank", type=int, default=-1)
     parser.add_argument('--seed', default=114154, type=int)
 
     args = parser.parse_args()
