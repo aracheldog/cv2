@@ -1,3 +1,5 @@
+import random
+
 from dataset.semi import SemiDataset
 from model.semseg.deeplabv2 import DeepLabV2
 from model.semseg.deeplabv3plus import DeepLabV3Plus
@@ -11,16 +13,17 @@ import numpy as np
 import os
 from PIL import Image
 import torch
-torch.cuda.empty_cache()
+
 from torch.nn import CrossEntropyLoss, DataParallel
 from torch.optim import SGD
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, DistributedSampler
 from tqdm import tqdm
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(device)
+print("here are the all the devices: ", device)
+torch.cuda.empty_cache()
 
 MODE = None
 
@@ -50,6 +53,7 @@ def parse_args():
     parser.add_argument('--reliable-id-path', type=str)
     parser.add_argument('--plus', dest='plus', default=False, action='store_true',
                         help='whether to use ST++')
+    parser.add_argument("--local_rank", type=int, default=-1)
 
     args = parser.parse_args()
     return args
@@ -66,8 +70,13 @@ def main(args):
     criterion = CrossEntropyLoss(ignore_index=255)
 
     valset = SemiDataset(args.dataset, args.data_root, 'val', None)
-    valloader = DataLoader(valset, batch_size=4 if args.dataset == 'cityscapes' else 1,
-                           shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
+    # valloader = DataLoader(valset, batch_size=4 if args.dataset == 'cityscapes' else 1,
+    #                        shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
+    vel_sampler = DistributedSampler(valset)
+    valloader = DataLoader(valset, sampler=vel_sampler, batch_size = 4, shuffle=False,
+                             pin_memory=True,  num_workers=4, drop_last=False)
+
+
 
     # <====================== Supervised training with labeled images (SupOnly) ======================>
     print('\n================> Total stage 1/%i: '
@@ -78,8 +87,12 @@ def main(args):
 
     trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size, args.labeled_id_path)
     trainset.ids = 2 * trainset.ids if len(trainset.ids) < 200 else trainset.ids
-    trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
-                             pin_memory=True, num_workers=16, drop_last=True)
+
+    train_sampler = DistributedSampler(trainset)
+    trainloader = DataLoader(trainset, sampler=train_sampler, batch_size=args.batch_size, shuffle=True,pin_memory=True, drop_last=True)
+
+    # trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
+    #                          pin_memory=True, num_workers=16, drop_last=True)
 
     model, optimizer = init_basic_elems(args)
     print('\nParams: %.1fM' % count_params(model))
@@ -94,7 +107,10 @@ def main(args):
         print('\n\n\n================> Total stage 2/3: Pseudo labeling all unlabeled images')
 
         dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, args.unlabeled_id_path)
-        dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
+        # dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
+        train_sampler = DistributedSampler(dataset)
+        dataloader = DataLoader(dataset, sampler=train_sampler, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
+
 
         label(best_model, dataloader, args)
 
@@ -105,8 +121,12 @@ def main(args):
 
         trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size,
                                args.labeled_id_path, args.unlabeled_id_path, args.pseudo_mask_path)
-        trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
-                                 pin_memory=True, num_workers=16, drop_last=True)
+        train_sampler = DistributedSampler(trainset)
+        trainloader = DataLoader(trainset, sampler=train_sampler, batch_size=args.batch_size, shuffle=True,
+                                 pin_memory=True, drop_last=True)
+
+        # trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
+        #                          pin_memory=True, num_workers=16, drop_last=True)
 
         model, optimizer = init_basic_elems(args)
 
@@ -121,7 +141,10 @@ def main(args):
     print('\n\n\n================> Total stage 2/6: Select reliable images for the 1st stage re-training')
 
     dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, args.unlabeled_id_path)
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
+    # dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
+
+    dataset_sampler = DistributedSampler(dataset)
+    dataloader = DataLoader(dataset, sampler=dataset_sampler, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
     select_reliable(checkpoints, dataloader, args)
 
@@ -130,7 +153,11 @@ def main(args):
 
     cur_unlabeled_id_path = os.path.join(args.reliable_id_path, 'reliable_ids.txt')
     dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, cur_unlabeled_id_path)
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
+    # dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
+
+    dataset_sampler = DistributedSampler(dataset)
+    dataloader = DataLoader(dataset, sampler=dataset_sampler, batch_size=1, shuffle=False, pin_memory=True,
+                            num_workers=4, drop_last=False)
 
     label(best_model, dataloader, args)
 
@@ -141,7 +168,10 @@ def main(args):
 
     trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size,
                            args.labeled_id_path, cur_unlabeled_id_path, args.pseudo_mask_path)
-    trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
+    # trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
+    #                          pin_memory=True, num_workers=16, drop_last=True)
+    train_sampler = DistributedSampler(trainset)
+    trainloader = DataLoader(trainset, sampler=train_sampler, batch_size=args.batch_size, shuffle=True,
                              pin_memory=True, num_workers=16, drop_last=True)
 
     model, optimizer = init_basic_elems(args)
@@ -153,8 +183,9 @@ def main(args):
 
     cur_unlabeled_id_path = os.path.join(args.reliable_id_path, 'unreliable_ids.txt')
     dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, cur_unlabeled_id_path)
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
-
+    # dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
+    dataset_sampler = DistributedSampler(dataset)
+    dataloader = DataLoader(dataset, sampler=dataset_sampler,batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
     label(best_model, dataloader, args)
 
     # <================================== The 2nd stage re-training ==================================>
@@ -162,8 +193,12 @@ def main(args):
 
     trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size,
                            args.labeled_id_path, args.unlabeled_id_path, args.pseudo_mask_path)
-    trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
-                             pin_memory=True, num_workers=16, drop_last=True)
+    # trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
+    #                          pin_memory=True, num_workers=16, drop_last=True)
+    train_sampler = DistributedSampler(trainset)
+    trainloader = DataLoader(trainset, sampler=train_sampler, batch_size=args.batch_size, shuffle=True,
+                             pin_memory=True, drop_last=True)
+
 
     model, optimizer = init_basic_elems(args)
 
@@ -188,7 +223,9 @@ def init_basic_elems(args):
                       'lr': args.lr * head_lr_multiple}],
                     lr=args.lr, momentum=0.9, weight_decay=1e-4)
 
-    model = DataParallel(model)
+    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank],
+                                                      output_device=args.local_rank, find_unused_parameters=True)
+    # model = DataParallel(model)
     model.to(device)
 
     return model, optimizer
@@ -330,6 +367,15 @@ def label(model, dataloader, args):
 
 if __name__ == '__main__':
     args = parse_args()
+    torch.cuda.set_device(args.local_rank)
+    device = torch.device('cuda', args.local_rank)
+    torch.distributed.init_process_group(backend='nccl')
+    # 固定随机种子
+    seed = 42
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
 
     if args.epochs is None:
         args.epochs = {'pascal': 80, 'cityscapes': 240}[args.dataset]
