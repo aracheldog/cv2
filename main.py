@@ -431,9 +431,9 @@ class BalancedDataParallel(DataParallel):
         else:
             device_ids = self.device_ids
         if len(inputs) == 1:
-            return self.module(*inputs[0], **kwargs[0])
+            return self.module(*inputs, **kwargs)
         inputs, kwargs = self.scatter(inputs, kwargs, device_ids)
-        if len(self.device_ids):
+        if len(self.device_ids) == 1:
             return self.module(*inputs[0], **kwargs[0])
         replicas = self.replicate(self.module, self.device_ids)
         if self.gpu0_bsz == 0:
