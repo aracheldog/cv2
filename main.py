@@ -173,7 +173,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
         if args.local_rank == 0:
             print("\n==> Epoch %i, learning rate = %.4f\t\t\t\t\t previous best = %.2f" %
                 (epoch, optimizer.param_groups[0]["lr"], previous_best))
-        total_loss = AverageMeter()
+        total_loss = 0
         trainloader.sampler.set_epoch(epoch)
 
         model.train()
@@ -191,7 +191,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
             loss.backward()
             optimizer.step()
 
-            total_loss.update(loss.item())
+            total_loss += loss.item()
 
             iters += 1
             lr = args.lr * (1 - iters / total_iters) ** 0.9
@@ -199,7 +199,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
             optimizer.param_groups[1]["lr"] = lr * 1.0 if args.model == 'deeplabv2' else lr * 10.0
 
             if args.local_rank == 0:
-                tbar.set_description('Loss: %.3f' % total_loss.avg)
+                tbar.set_description('Loss: %.3f' % (total_loss / (i + 1)))
 
         metric = meanIOU(num_classes=21)
 
