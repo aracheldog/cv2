@@ -274,7 +274,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
 
         model.eval()
         tbar = tqdm(valloader)
-        model.device_ids = ["1"]
+
         with torch.no_grad():
             for img, mask, _ in tbar:
                 img = img.cuda()
@@ -431,7 +431,7 @@ class BalancedDataParallel(DataParallel):
         else:
             device_ids = self.device_ids
         inputs, kwargs = self.scatter(inputs, kwargs, device_ids)
-        if len(self.device_ids) == 1:
+        if len(self.device_ids) == 1 or len(inputs) == 1:
             return self.module(*inputs[0], **kwargs[0])
         replicas = self.replicate(self.module, self.device_ids)
         if self.gpu0_bsz == 0:
@@ -440,8 +440,6 @@ class BalancedDataParallel(DataParallel):
         return self.gather(outputs, self.output_device)
 
     def parallel_apply(self, replicas, device_ids, inputs, kwargs):
-
-
         return parallel_apply(replicas, inputs, kwargs, device_ids)
 
     def scatter(self, inputs, kwargs, device_ids):
