@@ -99,7 +99,8 @@ def main(args):
     if args.local_rank == 0:
         print('\nParams: %.1fM' % count_params(model))
     model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
-    model.cuda(args.local_rank)
+    device = torch.device('cuda', args.local_rank)
+    model.to(device)
     model = torch.nn.parallel.DistributedDataParallel(model,device_ids=[args.local_rank], output_device=args.local_rank,find_unused_parameters=True)
 
 
@@ -137,7 +138,7 @@ def main(args):
         dataloader = DataLoader(dataset, batch_size=1, pin_memory=True, num_workers=4, drop_last=False)
 
         label(best_model, dataloader, args)
-        torch.cuda.empty_cache()
+
 
         # <======================== Re-training on labeled and unlabeled images ========================>
         print('\n\n\n================> Total stage 3/3: Re-training on labeled and unlabeled images')
@@ -165,7 +166,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
     previous_best = 0.0
 
     global MODE
-
+    device = torch.device('cuda', args.local_rank)
     if MODE == 'train':
         checkpoints = []
 
@@ -181,7 +182,7 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
 
         # input image shape is torch.Size([16, 3, 321, 321])
         for i, (img, mask) in enumerate(tbar):
-            img, mask = img.cuda(), mask.cuda()
+            img, mask = img.to(device), mask.to(device)
             # print(summary(model, (3, 321, 321), 16))
             pred = model(img)
             loss = criterion(pred, mask)
