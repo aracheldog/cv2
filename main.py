@@ -222,7 +222,7 @@ def init_basic_elems(args):
                     lr=args.lr, momentum=0.9, weight_decay=1e-4)
 
     # model = DataParallel(model)
-    model = BalancedDataParallel(args.first, model, dim=0)
+    model = DataParallel(args.first, model, dim=0)
     model.to(device)
 
 
