@@ -99,7 +99,7 @@ def main(args):
     criterion = CrossEntropyLoss(ignore_index=255)
 
     valset = SemiDataset(args.dataset, args.data_root, 'val', None)
-    valloader = DataLoader(valset, batch_size=1,
+    valloader = DataLoader(valset, batch_size=2,
                            shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
     # <====================== Supervised training with labeled images (SupOnly) ======================>
@@ -439,9 +439,7 @@ class BalancedDataParallel(DataParallel):
         return self.gather(outputs, self.output_device)
 
     def parallel_apply(self, replicas, device_ids, inputs, kwargs):
-        if len(inputs) == 1:
-            # Directly use cuda:1 as GPU if the length of inputs is 1
-            return parallel_apply(replicas[1:2], inputs, kwargs, [torch.device('cuda:1')])
+
 
         return parallel_apply(replicas, inputs, kwargs, device_ids)
 
