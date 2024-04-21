@@ -41,11 +41,10 @@ def collate_fn(batch):
     padded_masks = []
     for img, mask in zip(images, masks):
         # Create a tensor filled with zeros for padding
-        padded_img = torch.zeros((3, max_height, max_width), dtype=torch.float32)
-        padded_mask = torch.zeros((1, max_height, max_width), dtype=torch.float32)
-        # Copy the original image and mask to the padded tensor
-        padded_img[:, :img.size(1), :img.size(2)] = img
-        padded_mask[:, :mask.size(1), :mask.size(2)] = mask
+        pad_height = max_height - img.size(1)
+        pad_width = max_width - img.size(2)
+        padded_img = torch.nn.functional.pad(img, (0, pad_width, 0, pad_height), value=0)
+        padded_mask = torch.nn.functional.pad(mask, (0, pad_width, 0, pad_height), value=0)
         padded_images.append(padded_img)
         padded_masks.append(padded_mask)
 
