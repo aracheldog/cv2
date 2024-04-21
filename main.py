@@ -29,7 +29,7 @@ MODE = None
 
 
 def collate_fn(batch):
-  print(batch, batch.size)
+  print(batch, len(batch))
   print()
   return {
       'pixel_values': torch.stack([x['pixel_values'] for x in batch]),
