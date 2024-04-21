@@ -119,6 +119,7 @@ def main(args):
     print('\nParams: %.1fM' % count_params(model))
 
     best_model, checkpoints = train(model, trainloader, valloader, criterion, optimizer, args)
+    torch.cuda.empty_cache()
 
     """
         ST framework without selective re-training
@@ -131,6 +132,7 @@ def main(args):
         dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
         label(best_model, dataloader, args)
+        torch.cuda.empty_cache()
 
         # <======================== Re-training on labeled and unlabeled images ========================>
         print('\n\n\n================> Total stage 3/3: Re-training on labeled and unlabeled images')
@@ -146,6 +148,7 @@ def main(args):
 
         train(model, trainloader, valloader, criterion, optimizer, args)
 
+
         return
 
     """
@@ -158,6 +161,7 @@ def main(args):
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
     select_reliable(checkpoints, dataloader, args)
+    torch.cuda.empty_cache()
 
     # <================================ Pseudo label reliable images =================================>
     print('\n\n\n================> Total stage 3/6: Pseudo labeling reliable images')
@@ -167,6 +171,7 @@ def main(args):
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
     label(best_model, dataloader, args)
+    torch.cuda.empty_cache()
 
     # <================================== The 1st stage re-training ==================================>
     print('\n\n\n================> Total stage 4/6: The 1st stage re-training on labeled and reliable unlabeled images')
@@ -181,6 +186,7 @@ def main(args):
     model, optimizer = init_basic_elems(args)
 
     best_model = train(model, trainloader, valloader, criterion, optimizer, args)
+    torch.cuda.empty_cache()
 
     # <=============================== Pseudo label unreliable images ================================>
     print('\n\n\n================> Total stage 5/6: Pseudo labeling unreliable images')
@@ -190,6 +196,7 @@ def main(args):
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
     label(best_model, dataloader, args)
+    torch.cuda.empty_cache()
 
     # <================================== The 2nd stage re-training ==================================>
     print('\n\n\n================> Total stage 6/6: The 2nd stage re-training on labeled and all unlabeled images')
