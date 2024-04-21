@@ -16,7 +16,7 @@ from torch.nn import CrossEntropyLoss, DataParallel
 from torch.optim import SGD
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 
 MODE = None
 
