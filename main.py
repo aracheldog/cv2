@@ -89,7 +89,7 @@ def main(args):
     trainset.ids = 2 * trainset.ids if len(trainset.ids) < 200 else trainset.ids
 
     train_sampler = DistributedSampler(trainset)
-    trainloader = DataLoader(trainset, sampler=train_sampler, batch_size=args.batch_size, shuffle=True,pin_memory=True, drop_last=True)
+    trainloader = DataLoader(trainset, sampler=train_sampler, batch_size=args.batch_size, shuffle=False,pin_memory=True, drop_last=True)
 
     # trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
     #                          pin_memory=True, num_workers=16, drop_last=True)
@@ -108,7 +108,7 @@ def main(args):
 
         dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, args.unlabeled_id_path)
         # dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
-        train_sampler = DistributedSampler(dataset)
+        train_sampler = DistributedSampler(dataset, shuffle=False)
         dataloader = DataLoader(dataset, sampler=train_sampler, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
 
@@ -122,7 +122,7 @@ def main(args):
         trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size,
                                args.labeled_id_path, args.unlabeled_id_path, args.pseudo_mask_path)
         train_sampler = DistributedSampler(trainset)
-        trainloader = DataLoader(trainset, sampler=train_sampler, batch_size=args.batch_size, shuffle=True,
+        trainloader = DataLoader(trainset, sampler=train_sampler, batch_size=args.batch_size, shuffle=False,
                                  pin_memory=True, drop_last=True)
 
         # trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
@@ -143,7 +143,7 @@ def main(args):
     dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, args.unlabeled_id_path)
     # dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
-    dataset_sampler = DistributedSampler(dataset)
+    dataset_sampler = DistributedSampler(dataset, shuffle= False)
     dataloader = DataLoader(dataset, sampler=dataset_sampler, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
     select_reliable(checkpoints, dataloader, args)
@@ -155,7 +155,7 @@ def main(args):
     dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, cur_unlabeled_id_path)
     # dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
-    dataset_sampler = DistributedSampler(dataset)
+    dataset_sampler = DistributedSampler(dataset, shuffle=False)
     dataloader = DataLoader(dataset, sampler=dataset_sampler, batch_size=1, shuffle=False, pin_memory=True,
                             num_workers=4, drop_last=False)
 
@@ -171,7 +171,7 @@ def main(args):
     # trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
     #                          pin_memory=True, num_workers=16, drop_last=True)
     train_sampler = DistributedSampler(trainset)
-    trainloader = DataLoader(trainset, sampler=train_sampler, batch_size=args.batch_size, shuffle=True,
+    trainloader = DataLoader(trainset, sampler=train_sampler, batch_size=args.batch_size, shuffle=False,
                              pin_memory=True, num_workers=16, drop_last=True)
 
     model, optimizer = init_basic_elems(args)
@@ -184,7 +184,7 @@ def main(args):
     cur_unlabeled_id_path = os.path.join(args.reliable_id_path, 'unreliable_ids.txt')
     dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, cur_unlabeled_id_path)
     # dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
-    dataset_sampler = DistributedSampler(dataset)
+    dataset_sampler = DistributedSampler(dataset, shuffle=False)
     dataloader = DataLoader(dataset, sampler=dataset_sampler,batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
     label(best_model, dataloader, args)
 
@@ -196,7 +196,7 @@ def main(args):
     # trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
     #                          pin_memory=True, num_workers=16, drop_last=True)
     train_sampler = DistributedSampler(trainset)
-    trainloader = DataLoader(trainset, sampler=train_sampler, batch_size=args.batch_size, shuffle=True,
+    trainloader = DataLoader(trainset, sampler=train_sampler, batch_size=args.batch_size, shuffle=False,
                              pin_memory=True, drop_last=True)
 
 
