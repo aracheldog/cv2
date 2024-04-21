@@ -70,17 +70,15 @@ def main(args):
         os.makedirs(args.pseudo_mask_path)
     if args.plus and args.reliable_id_path is None:
         exit('Please specify reliable-id-path in ST++.')
+    # import random
+    # SEED=args.seed
+    # random.seed(SEED)
+    # np.random.seed(SEED)
+    # torch.manual_seed(SEED)
+    # torch.cuda.manual_seed(SEED)
+    # torch.cuda.manual_seed_all(SEED)
+    # print(torch.cuda.is_available())
 
-
-
-    import random
-    SEED=args.seed
-    random.seed(SEED)
-    np.random.seed(SEED)
-    torch.manual_seed(SEED)
-    torch.cuda.manual_seed(SEED)
-    torch.cuda.manual_seed_all(SEED)
-    print(torch.cuda.is_available())
     cudnn.enabled = True
     cudnn.benchmark = True
 
