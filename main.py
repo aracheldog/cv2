@@ -27,7 +27,33 @@ torch.cuda.empty_cache()
 
 MODE = None
 
+def collate_fn(batch):
+    # Separate the samples into lists of images and masks
+    images = [item[0] for item in batch]
+    masks = [item[1] for item in batch]
 
+    # Find the maximum height and width among all images
+    max_height = max(img.size(1) for img in images)
+    max_width = max(img.size(2) for img in images)
+
+    # Pad images to the same size
+    padded_images = []
+    padded_masks = []
+    for img, mask in zip(images, masks):
+        # Create a tensor filled with zeros for padding
+        padded_img = torch.zeros((3, max_height, max_width), dtype=torch.float32)
+        padded_mask = torch.zeros((1, max_height, max_width), dtype=torch.float32)
+        # Copy the original image and mask to the padded tensor
+        padded_img[:, :img.size(1), :img.size(2)] = img
+        padded_mask[:, :mask.size(1), :mask.size(2)] = mask
+        padded_images.append(padded_img)
+        padded_masks.append(padded_mask)
+
+    # Stack padded images and masks
+    stacked_images = torch.stack(padded_images)
+    stacked_masks = torch.stack(padded_masks)
+
+    return stacked_images, stacked_masks
 
 
 def parse_args():
@@ -73,8 +99,8 @@ def main(args):
     criterion = CrossEntropyLoss(ignore_index=255)
 
     valset = SemiDataset(args.dataset, args.data_root, 'val', None)
-    valloader = DataLoader(valset, batch_size=1,
-                           shuffle=False, pin_memory=True, num_workers=0, drop_last=False)
+    valloader = DataLoader(valset, batch_size=8,
+                           shuffle=False, pin_memory=True, num_workers=4, drop_last=False, collate_fn= collate_fn)
 
     # <====================== Supervised training with labeled images (SupOnly) ======================>
     print('\n================> Total stage 1/%i: '
