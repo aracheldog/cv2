@@ -52,18 +52,14 @@ class SemiDataset(Dataset):
     def __getitem__(self, item):
         id = self.ids[item]
         img = Image.open(os.path.join(self.root, id.split(' ')[0]))
+        mask = Image.open(os.path.join(self.root, id.split(' ')[1]))
 
         if self.mode == 'val' or self.mode == 'label':
             mask = Image.open(os.path.join(self.root, id.split(' ')[1]))
             img, mask = normalize(img, mask)
             return img, mask, id
 
-        if self.mode == 'train' or (self.mode == 'semi_train' and id in self.labeled_ids):
-            mask = Image.open(os.path.join(self.root, id.split(' ')[1]))
-        else:
-            # mode == 'semi_train' and the id corresponds to unlabeled image
-            fname = os.path.basename(id.split(' ')[1])
-            mask = Image.open(os.path.join(self.pseudo_mask_path, fname))
+
 
         # basic augmentation on all training images
         base_size = 400 if self.name == 'pascal' else 2048
