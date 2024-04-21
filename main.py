@@ -31,6 +31,7 @@ def collate_fn(batch):
     # Separate the samples into lists of images and masks
     images = [item[0] for item in batch]
     masks = [item[1] for item in batch]
+    ids = [item[2] for item in batch]
 
     # Find the maximum height and width among all images
     max_height = max(img.size(1) for img in images)
@@ -52,7 +53,7 @@ def collate_fn(batch):
     stacked_images = torch.stack(padded_images)
     stacked_masks = torch.stack(padded_masks)
 
-    return stacked_images, stacked_masks
+    return stacked_images, stacked_masks, ids
 
 
 def parse_args():
