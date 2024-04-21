@@ -128,7 +128,7 @@ def main(args):
         print('\n\n\n================> Total stage 2/3: Pseudo labeling all unlabeled images')
 
         dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, args.unlabeled_id_path)
-        dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
+        dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
         label(best_model, dataloader, args)
 
@@ -176,7 +176,7 @@ def main(args):
     trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size,
                            args.labeled_id_path, cur_unlabeled_id_path, args.pseudo_mask_path)
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
-                             pin_memory=True, num_workers=16, drop_last=True)
+                             pin_memory=True, num_workers=24, drop_last=True)
 
     model, optimizer = init_basic_elems(args)
 
@@ -197,7 +197,7 @@ def main(args):
     trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size,
                            args.labeled_id_path, args.unlabeled_id_path, args.pseudo_mask_path)
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
-                             pin_memory=True, num_workers=16, drop_last=True)
+                             pin_memory=True, num_workers=24, drop_last=True)
 
     model, optimizer = init_basic_elems(args)
 
