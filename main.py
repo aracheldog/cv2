@@ -21,42 +21,15 @@ from torch.nn import CrossEntropyLoss, DataParallel
 from torch.optim import SGD
 from torch.utils.data import DataLoader, DistributedSampler
 from tqdm import tqdm
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print("here are the all the devices: ", device)
-torch.cuda.empty_cache()
+# os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
+#
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# print("here are the all the devices: ", device)
+# torch.cuda.empty_cache()
 
 MODE = None
 
-# def collate_fn(batch):
-#     # Separate the samples into lists of images and masks
-#     images = [item[0] for item in batch]
-#     masks = [item[1] for item in batch]
-#     ids = [item[2] for item in batch]
-#
-#     # Find the maximum height and width among all images
-#     max_height = max(img.size(1) for img in images)
-#     max_width = max(img.size(2) for img in images)
-#
-#     # Pad images to the same size
-#     padded_images = []
-#     padded_masks = []
-#     for img, mask in zip(images, masks):
-#         # Create a tensor filled with zeros for padding
-#         pad_height = max_height - img.size(1)
-#         pad_width = max_width - img.size(2)
-#         padded_img = torch.nn.functional.pad(img, (0, pad_width, 0, pad_height), value=0)
-#         padded_mask = torch.nn.functional.pad(mask, (0, pad_width, 0, pad_height), value=0)
-#         padded_images.append(padded_img)
-#         padded_masks.append(padded_mask)
-#
-#     # Stack padded images and masks
-#     stacked_images = torch.stack(padded_images)
-#     stacked_masks = torch.stack(padded_masks)
-#
-#     return stacked_images, stacked_masks, ids
 
 
 
