@@ -74,7 +74,7 @@ def main(args):
 
     valset = SemiDataset(args.dataset, args.data_root, 'val', None)
     valloader = DataLoader(valset, batch_size=args.batch_size,
-                           shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
+                           shuffle=False, pin_memory=True, num_workers=0, drop_last=False)
 
     # <====================== Supervised training with labeled images (SupOnly) ======================>
     print('\n================> Total stage 1/%i: '
