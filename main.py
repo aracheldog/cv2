@@ -5,6 +5,7 @@ from torch.testing._internal.common_quantization import AverageMeter
 
 from dataset.semi import SemiDataset
 from model.semseg.deeplabv2 import DeepLabV2
+import torch.distributed as dist
 from model.semseg.deeplabv3plus import DeepLabV3Plus
 from model.semseg.pspnet import PSPNet
 # from torchsummary import summary
@@ -70,6 +71,9 @@ def main(args):
         os.makedirs(args.pseudo_mask_path)
     if args.plus and args.reliable_id_path is None:
         exit('Please specify reliable-id-path in ST++.')
+
+    torch.distributed.init_process_group(backend='nccl')
+
     import random
     SEED=args.seed
     random.seed(SEED)
@@ -77,6 +81,7 @@ def main(args):
     torch.manual_seed(SEED)
     torch.cuda.manual_seed(SEED)
     torch.cuda.manual_seed_all(SEED)
+
 
 
     model = DeepLabV3Plus(args.backbone, 21)
