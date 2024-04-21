@@ -358,7 +358,7 @@ def label(model, dataloader, args):
     with torch.no_grad():
         for img, mask, id in tbar:
             img = img.to(device)
-            torch.cuda.empty_cache()
+            print(img, len(img), len(img[0]))
             pred = model(img, True)
 
             pred = torch.argmax(pred, dim=1).cpu()
