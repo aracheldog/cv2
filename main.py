@@ -1,5 +1,8 @@
 import random
 
+from torch.backends import cudnn
+from torch.testing._internal.common_quantization import AverageMeter
+
 from dataset.semi import SemiDataset
 from model.semseg.deeplabv2 import DeepLabV2
 from model.semseg.deeplabv3plus import DeepLabV3Plus
@@ -16,7 +19,7 @@ import torch
 
 from torch.nn import CrossEntropyLoss, DataParallel
 from torch.optim import SGD
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, DistributedSampler
 from tqdm import tqdm
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
@@ -85,6 +88,7 @@ def parse_args():
 
     parser.add_argument("--first", type=int, default=2)
     parser.add_argument("--local_rank", type=int, default=-1)
+    parser.add_argument('--seed', default=114154, type=int)
 
     args = parser.parse_args()
     return args
@@ -97,37 +101,60 @@ def main(args):
         os.makedirs(args.pseudo_mask_path)
     if args.plus and args.reliable_id_path is None:
         exit('Please specify reliable-id-path in ST++.')
-
     # 每个进程根据自己的local_rank设置应该使用的GPU
     torch.cuda.set_device(args.local_rank)
-    #device = torch.device('cuda', args.local_rank)
-
+    device = torch.device('cuda', args.local_rank)
     # 初始化分布式环境，主要用来帮助进程间通信
     torch.distributed.init_process_group(backend='nccl')
 
-    criterion = CrossEntropyLoss(ignore_index=255)
+    import random
+    SEED=args.seed
+    random.seed(SEED)
+    np.random.seed(SEED)
+    torch.manual_seed(SEED)
+    torch.cuda.manual_seed(SEED)
+    torch.cuda.manual_seed_all(SEED)
 
-    valset = SemiDataset(args.dataset, args.data_root, 'val', None)
-    valloader = DataLoader(valset, batch_size=1,
-                           shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
+    cudnn.enabled = True
+    cudnn.benchmark = True
 
-    # <====================== Supervised training with labeled images (SupOnly) ======================>
-    print('\n================> Total stage 1/%i: '
-          'Supervised training on labeled images (SupOnly)' % (6 if args.plus else 3))
+    model = DeepLabV3Plus(args.backbone, 21)
+    if args.local_rank == 0:
+        print('\nParams: %.1fM' % count_params(model))
+    model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
+    model.cuda()
+    model = torch.nn.parallel.DistributedDataParallel(model,device_ids=[args.local_rank], output_device=args.local_rank,find_unused_parameters=True)
+    head_lr_multiple = 10.0
+    optimizer = SGD([{'params': model.backbone.parameters(), 'lr': args.lr},
+                     {'params': [param for name, param in model.named_parameters()
+                                 if 'backbone' not in name],
+                      'lr': args.lr * head_lr_multiple}],
+                    lr=args.lr, momentum=0.9, weight_decay=1e-4)
+    criterion = CrossEntropyLoss(ignore_index=255).cuda(args.local_rank)
+
 
     global MODE
     MODE = 'train'
 
+    # labelled dataset
     trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size, args.labeled_id_path)
     trainset.ids = 2 * trainset.ids if len(trainset.ids) < 200 else trainset.ids
+    train_sampler = DistributedSampler(trainset)
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
-                             pin_memory=True, num_workers=16, drop_last=True)
+                             pin_memory=True, num_workers=16, drop_last=True, sampler=train_sampler)
 
-    model, optimizer = init_basic_elems(args)
-    print('\nParams: %.1fM' % count_params(model))
+    valset = SemiDataset(args.dataset, args.data_root, 'val', None)
+    val_sampler = DistributedSampler(valset)
+    valloader = DataLoader(valset, batch_size=1,
+                           shuffle=False, pin_memory=True, num_workers=4, drop_last=False, sampler=val_sampler)
+
+    # <====================== Supervised training with labeled images (SupOnly) ======================>
+    if  args.local_rank == 0:
+        print('\n================> Total stage 1/%i: '
+            'Supervised training on labeled images (SupOnly)' % (6 if args.plus else 3))
 
     best_model, checkpoints = train(model, trainloader, valloader, criterion, optimizer, args)
-    torch.cuda.empty_cache()
+
 
     """
         ST framework without selective re-training
@@ -161,32 +188,6 @@ def main(args):
 
 
 
-
-
-def init_basic_elems(args):
-    model_zoo = {'deeplabv3plus': DeepLabV3Plus, 'pspnet': PSPNet, 'deeplabv2': DeepLabV2}
-    model = model_zoo[args.model](args.backbone, 21 if args.dataset == 'pascal' else 19)
-
-    head_lr_multiple = 10.0
-
-    if args.model == 'deeplabv2':
-        assert args.backbone == 'resnet101'
-        model.load_state_dict(torch.load('pretrained/deeplabv2_resnet101_coco_pretrained.pth'))
-        head_lr_multiple = 1.0
-
-
-    optimizer = SGD([{'params': model.backbone.parameters(), 'lr': args.lr},
-                     {'params': [param for name, param in model.named_parameters()
-                                 if 'backbone' not in name],
-                      'lr': args.lr * head_lr_multiple}],
-                    lr=args.lr, momentum=0.9, weight_decay=1e-4)
-
-    # model = DataParallel(model)
-    # model = BalancedDataParallel(args.first, model, dim=0)
-
-    return model, optimizer
-
-
 def train(model, trainloader, valloader, criterion, optimizer, args):
     iters = 0
     total_iters = len(trainloader) * args.epochs
@@ -203,39 +204,42 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
                                                       output_device=torch.distributed.get_rank(), find_unused_parameters=False)
 
     for epoch in range(args.epochs):
-        print("\n==> Epoch %i, learning rate = %.4f\t\t\t\t\t previous best = %.2f" %
-              (epoch, optimizer.param_groups[0]["lr"], previous_best))
+        if args.local_rank == 0:
+            print("\n==> Epoch %i, learning rate = %.4f\t\t\t\t\t previous best = %.2f" %
+                (epoch, optimizer.param_groups[0]["lr"], previous_best))
+        total_loss = AverageMeter()
+        trainloader.sampler.set_epoch(epoch)
 
         model.train()
-        total_loss = 0.0
         tbar = tqdm(trainloader)
 
         # input image shape is torch.Size([16, 3, 321, 321])
         for i, (img, mask) in enumerate(tbar):
-
-            img, mask = img.to(device), mask.to(device)
+            img, mask = img.cuda(), mask.cuda()
             # print(summary(model, (3, 321, 321), 16))
             pred = model(img)
             loss = criterion(pred, mask)
+            torch.distributed.barrier()
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-            total_loss += loss.item()
+            total_loss.update(loss.item())
 
             iters += 1
             lr = args.lr * (1 - iters / total_iters) ** 0.9
             optimizer.param_groups[0]["lr"] = lr
             optimizer.param_groups[1]["lr"] = lr * 1.0 if args.model == 'deeplabv2' else lr * 10.0
 
-            tbar.set_description('Loss: %.3f' % (total_loss / (i + 1)))
+            if args.local_rank == 0:
+                tbar.set_description('Loss: %.3f' % total_loss.avg)
 
-        metric = meanIOU(num_classes=21 if args.dataset == 'pascal' else 19)
+        metric = meanIOU(num_classes=21)
 
         model.eval()
         tbar = tqdm(valloader)
-        torch.cuda.empty_cache()
+
         with torch.no_grad():
             for img, mask, _ in tbar:
                 img = img.cuda()
@@ -244,8 +248,8 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
 
                 metric.add_batch(pred.cpu().numpy(), mask.numpy())
                 mIOU = metric.evaluate()[-1]
-
-                tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
+                if args.local_rank == 0:
+                    tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
 
         mIOU *= 100.0
         if mIOU > previous_best:
@@ -394,7 +398,20 @@ class BalancedDataParallel(DataParallel):
             return super().scatter(inputs, kwargs, device_ids)
         return scatter_kwargs(inputs, kwargs, device_ids, chunk_sizes, dim=self.dim)
 
+def init_basic_elems(args):
 
+    model = DeepLabV3Plus(args.backbone, 21)
+    head_lr_multiple = 10.0
+    optimizer = SGD([{'params': model.backbone.parameters(), 'lr': args.lr},
+                     {'params': [param for name, param in model.named_parameters()
+                                 if 'backbone' not in name],
+                      'lr': args.lr * head_lr_multiple}],
+                    lr=args.lr, momentum=0.9, weight_decay=1e-4)
+
+    # model = DataParallel(model)
+    # model = BalancedDataParallel(args.first, model, dim=0)
+
+    return model, optimizer
 if __name__ == '__main__':
     args = parse_args()
 
@@ -404,8 +421,8 @@ if __name__ == '__main__':
         args.lr = {'pascal': 0.001, 'cityscapes': 0.004}[args.dataset] / 16 * args.batch_size
     if args.crop_size is None:
         args.crop_size = {'pascal': 321, 'cityscapes': 721}[args.dataset]
-
-    print()
-    print(args)
+    if args.local_rank == 0:
+        print()
+        print(args)
 
     main(args)
