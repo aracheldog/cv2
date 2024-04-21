@@ -18,22 +18,29 @@ from torch.nn import CrossEntropyLoss, DataParallel
 from torch.optim import SGD
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-
-
-import torch
-from torch.nn.parallel.data_parallel import DataParallel
-from torch.nn.parallel.parallel_apply import parallel_apply
-from torch.nn.parallel._functions import Scatter
-
-
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("here are the all the devices: ", device)
 torch.cuda.empty_cache()
 
 MODE = None
+
+
+# 每个进程根据自己的local_rank设置应该使用的GPU
+torch.cuda.set_device(args.local_rank)
+device = torch.device('cuda', args.local_rank)
+
+# 初始化分布式环境，主要用来帮助进程间通信
+torch.distributed.init_process_group(backend='nccl')
+
+
+seed = 42
+random.seed(seed)
+np.random.seed(seed)
+torch.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)
 
 
 def parse_args():
@@ -61,6 +68,7 @@ def parse_args():
     parser.add_argument('--reliable-id-path', type=str)
     parser.add_argument('--plus', dest='plus', default=False, action='store_true',
                         help='whether to use ST++')
+
     parser.add_argument("--local_rank", type=int, default=-1)
 
     args = parser.parse_args()
@@ -106,7 +114,6 @@ def main(args):
         print('\n\n\n================> Total stage 2/3: Pseudo labeling all unlabeled images')
 
         dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, args.unlabeled_id_path)
-        
         dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
 
         label(best_model, dataloader, args)
@@ -201,8 +208,10 @@ def init_basic_elems(args):
                       'lr': args.lr * head_lr_multiple}],
                     lr=args.lr, momentum=0.9, weight_decay=1e-4)
 
-    model = BalancedDataParallel(2, model, dim=0).to(device)
+    # model = DataParallel(model)
+    model = BalancedDataParallel(2, model, dim=0)
     model.to(device)
+
 
     return model, optimizer
 
@@ -339,8 +348,10 @@ def label(model, dataloader, args):
             pred.save('%s/%s' % (args.pseudo_mask_path, os.path.basename(id[0].split(' ')[1])))
 
             tbar.set_description('mIOU: %.2f' % (mIOU * 100.0))
-
-
+import torch
+from torch.nn.parallel.data_parallel import DataParallel
+from torch.nn.parallel.parallel_apply import parallel_apply
+from torch.nn.parallel._functions import Scatter
 
 
 def scatter(inputs, target_gpus, chunk_sizes, dim=0):
@@ -435,15 +446,6 @@ class BalancedDataParallel(DataParallel):
 
 if __name__ == '__main__':
     args = parse_args()
-    torch.cuda.set_device(args.local_rank)
-    device = torch.device('cuda', args.local_rank)
-    torch.distributed.init_process_group(backend='nccl')
-    # 固定随机种子
-    seed = 42
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
 
     if args.epochs is None:
         args.epochs = {'pascal': 80, 'cityscapes': 240}[args.dataset]
