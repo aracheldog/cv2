@@ -27,33 +27,35 @@ torch.cuda.empty_cache()
 
 MODE = None
 
+# def collate_fn(batch):
+#     # Separate the samples into lists of images and masks
+#     images = [item[0] for item in batch]
+#     masks = [item[1] for item in batch]
+#     ids = [item[2] for item in batch]
+#
+#     # Find the maximum height and width among all images
+#     max_height = max(img.size(1) for img in images)
+#     max_width = max(img.size(2) for img in images)
+#
+#     # Pad images to the same size
+#     padded_images = []
+#     padded_masks = []
+#     for img, mask in zip(images, masks):
+#         # Create a tensor filled with zeros for padding
+#         pad_height = max_height - img.size(1)
+#         pad_width = max_width - img.size(2)
+#         padded_img = torch.nn.functional.pad(img, (0, pad_width, 0, pad_height), value=0)
+#         padded_mask = torch.nn.functional.pad(mask, (0, pad_width, 0, pad_height), value=0)
+#         padded_images.append(padded_img)
+#         padded_masks.append(padded_mask)
+#
+#     # Stack padded images and masks
+#     stacked_images = torch.stack(padded_images)
+#     stacked_masks = torch.stack(padded_masks)
+#
+#     return stacked_images, stacked_masks, ids
 def collate_fn(batch):
-    # Separate the samples into lists of images and masks
-    images = [item[0] for item in batch]
-    masks = [item[1] for item in batch]
-    ids = [item[2] for item in batch]
-
-    # Find the maximum height and width among all images
-    max_height = max(img.size(1) for img in images)
-    max_width = max(img.size(2) for img in images)
-
-    # Pad images to the same size
-    padded_images = []
-    padded_masks = []
-    for img, mask in zip(images, masks):
-        # Create a tensor filled with zeros for padding
-        pad_height = max_height - img.size(1)
-        pad_width = max_width - img.size(2)
-        padded_img = torch.nn.functional.pad(img, (0, pad_width, 0, pad_height), value=0)
-        padded_mask = torch.nn.functional.pad(mask, (0, pad_width, 0, pad_height), value=0)
-        padded_images.append(padded_img)
-        padded_masks.append(padded_mask)
-
-    # Stack padded images and masks
-    stacked_images = torch.stack(padded_images)
-    stacked_masks = torch.stack(padded_masks)
-
-    return stacked_images, stacked_masks, ids
+  return torch.stack([x[1] for x in batch]),torch.tensor([x[2] for x in batch]),[x[3] for x in batch]
 
 
 def parse_args():
@@ -100,7 +102,7 @@ def main(args):
 
     valset = SemiDataset(args.dataset, args.data_root, 'val', None)
     valloader = DataLoader(valset, batch_size=2,
-                           shuffle=False, pin_memory=True, num_workers=4, drop_last=False)
+                           shuffle=False, pin_memory=True, num_workers=4, drop_last=False,collate_fn=collate_fn)
 
     # <====================== Supervised training with labeled images (SupOnly) ======================>
     print('\n================> Total stage 1/%i: '
