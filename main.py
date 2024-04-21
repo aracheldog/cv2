@@ -78,9 +78,9 @@ def main(args):
     # torch.cuda.manual_seed(SEED)
     # torch.cuda.manual_seed_all(SEED)
     # print(torch.cuda.is_available())
-    with torch.backends.cudnn.flags(enabled=True):
-        cudnn.enabled = True
-        cudnn.benchmark = True
+
+    cudnn.enabled = True
+        # cudnn.benchmark = True
 
     model = DeepLabV3Plus(args.backbone, 21)
     if args.local_rank == 0:
@@ -162,10 +162,6 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
 
     if MODE == 'train':
         checkpoints = []
-    model.to(device)
-
-    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[torch.distributed.get_rank()],
-                                                      output_device=torch.distributed.get_rank(), find_unused_parameters=False)
 
     for epoch in range(args.epochs):
         if args.local_rank == 0:
