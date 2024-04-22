@@ -109,73 +109,66 @@ def main(args):
     global MODE
     MODE = 'train'
 
-    dataset_u = SemiDataset(args.dataset, args.data_root, 'train_u', args.crop_size, args.unlabeled_id_path)
-    dataset_u_sampler = DistributedSampler(dataset_u)
-    dataloader = DataLoader(dataset_u, batch_size=1, pin_memory=True, num_workers=1, drop_last=False, sampler=dataset_u_sampler)
-
     # labelled dataset
-    trainset = SemiDataset(args.dataset, args.data_root, 'train_l', args.crop_size, args.labeled_id_path, nsample=len(dataset_u.ids))
+    trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size, args.labeled_id_path)
+    trainset.ids = 2 * trainset.ids if len(trainset.ids) < 200 else trainset.ids
     train_sampler = DistributedSampler(trainset)
     trainloader = DataLoader(trainset, batch_size=args.batch_size,
                              pin_memory=True, num_workers=1, drop_last=True, sampler=train_sampler)
 
-    valset = SemiDataset(args.dataset, args.data_root, 'val')
+    valset = SemiDataset(args.dataset, args.data_root, 'val', None)
     val_sampler = DistributedSampler(valset)
     valloader = DataLoader(valset, batch_size=1,
                             pin_memory=True, num_workers=1, drop_last=False, sampler=val_sampler)
-
-
 
     # <====================== Supervised training with labeled images (SupOnly) ======================>
     if  args.local_rank == 0:
         print('\n================> Total stage 1/%i: '
             'Supervised training on labeled images (SupOnly)' % (6 if args.plus else 3))
 
-    best_model, checkpoints = train(model, trainloader,dataloader, valloader, criterion, optimizer, args)
+    best_model, checkpoints = train(model, trainloader, valloader, criterion, optimizer, args)
 
 
     """
         ST framework without selective re-training
     """
-    # if not args.plus:
-    #     # <============================= Pseudo label all unlabeled images =============================>
-    #     print('\n\n\n================> Total stage 2/3: Pseudo labeling all unlabeled images')
-    #
-    #     dataset_u = SemiDataset(args.dataset, args.data_root, 'label', None, None, args.unlabeled_id_path)
-    #     dataloader = DataLoader(dataset_u, batch_size=1, pin_memory=True, num_workers=4, drop_last=False)
-    #
-    #     label(best_model, dataloader, args)
-    #
-    #
-    #     # <======================== Re-training on labeled and unlabeled images ========================>
-    #     print('\n\n\n================> Total stage 3/3: Re-training on labeled and unlabeled images')
-    #
-    #     MODE = 'semi_train'
-    #
-    #     trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size,
-    #                            args.labeled_id_path, args.unlabeled_id_path, args.pseudo_mask_path)
-    #     trainloader = DataLoader(trainset, batch_size=args.batch_size,
-    #                              pin_memory=True, num_workers=16, drop_last=True)
-    #
-    #     model, optimizer = init_basic_elems(args)
-    #
-    #     train(model, trainloader, valloader, criterion, optimizer, args)
-    #
-    #
-    #     return
+    if not args.plus:
+        # <============================= Pseudo label all unlabeled images =============================>
+        print('\n\n\n================> Total stage 2/3: Pseudo labeling all unlabeled images')
+
+        dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, args.unlabeled_id_path)
+        dataloader = DataLoader(dataset, batch_size=1, pin_memory=True, num_workers=4, drop_last=False)
+
+        label(best_model, dataloader, args)
+
+
+        # <======================== Re-training on labeled and unlabeled images ========================>
+        print('\n\n\n================> Total stage 3/3: Re-training on labeled and unlabeled images')
+
+        MODE = 'semi_train'
+
+        trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size,
+                               args.labeled_id_path, args.unlabeled_id_path, args.pseudo_mask_path)
+        trainloader = DataLoader(trainset, batch_size=args.batch_size,
+                                 pin_memory=True, num_workers=16, drop_last=True)
+
+        model, optimizer = init_basic_elems(args)
+
+        train(model, trainloader, valloader, criterion, optimizer, args)
+
+
+        return
 
 
 
-def train(model, trainloader, trainloader_u ,valloader, criterion, optimizer, args):
+def train(model, trainloader, valloader, criterion, optimizer, args):
     iters = 0
     total_iters = len(trainloader) * args.epochs
-    device = torch.device('cuda', args.local_rank)
-    model.to(device)
-    cuda = next(model.parameters()).device
+
     previous_best = 0.0
 
     global MODE
-
+    device = torch.device('cuda', args.local_rank)
     if MODE == 'train':
         checkpoints = []
 
@@ -184,41 +177,17 @@ def train(model, trainloader, trainloader_u ,valloader, criterion, optimizer, ar
             print("\n==> Epoch %i, learning rate = %.4f\t\t\t\t\t previous best = %.2f" %
                 (epoch, optimizer.param_groups[0]["lr"], previous_best))
         total_loss = 0
-        total_loss_x = 0
-        total_loss_w_fp = 0
-
         trainloader.sampler.set_epoch(epoch)
-        trainloader_u.sampler.set_epoch(epoch)
-
-        # loader = zip(trainloader, trainloader_u)
 
         model.train()
         tbar = tqdm(trainloader)
-        trainloader_u_iter = iter(trainloader_u)
+
         # input image shape is torch.Size([16, 3, 321, 321])
-        for i, ((img_x, mask_x)) in enumerate(tbar):
-
-            img_x, mask_x = img_x.to(cuda), mask_x.to(cuda)
-            img_u_s, _ = next(trainloader_u_iter)
-            img_u_s = img_u_s.to(cuda)
-
-            with torch.no_grad():
-                model.eval()
-                pred_u_pseudo = model(img_u_s).detach()
-                pseudo_label = pred_u_pseudo.argmax(dim=1)
-
-
-            model.train()
-            num_lb, num_ulb = img_x.shape[0], img_u_s.shape[0]
-            preds = model(torch.cat((img_x, img_u_s)))
-            pred_x, pred_u = preds.split([num_lb, num_ulb])
-            loss_x = criterion(pred_x, mask_x)
-            loss_u_w_fp = criterion(pred_u, pseudo_label)
-            loss = (loss_x + loss_u_w_fp) / 2.0
-
+        for i, (img, mask) in enumerate(tbar):
+            img, mask = img.to(device), mask.to(device)
             # print(summary(model, (3, 321, 321), 16))
-            # pred = model(img)
-            # loss = criterion(pred, mask)
+            pred = model(img)
+            loss = criterion(pred, mask)
             torch.distributed.barrier()
 
             optimizer.zero_grad()
@@ -226,8 +195,6 @@ def train(model, trainloader, trainloader_u ,valloader, criterion, optimizer, ar
             optimizer.step()
 
             total_loss += loss.item()
-            total_loss_x += (loss_x.item())
-            total_loss_w_fp += (loss_u_w_fp.item())
 
             iters += 1
             lr = args.lr * (1 - iters / total_iters) ** 0.9
