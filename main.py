@@ -136,7 +136,8 @@ def main(args):
         print('\n\n\n================> Total stage 2/3: Pseudo labeling all unlabeled images')
 
         dataset = SemiDataset(args.dataset, args.data_root, 'label', None, None, args.unlabeled_id_path)
-        dataloader = DataLoader(dataset, batch_size=1, pin_memory=True, num_workers=4, drop_last=False)
+        dataset_sampler = DistributedSampler(dataset)
+        dataloader = DataLoader(dataset, batch_size=1, pin_memory=True, num_workers=4, drop_last=False, sampler=dataset_sampler)
 
         label(best_model, dataloader, args)
 
@@ -239,8 +240,6 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
 
 
 
-
-
 def label(model, dataloader, args):
     model.eval()
     tbar = tqdm(dataloader)
@@ -251,7 +250,8 @@ def label(model, dataloader, args):
     with torch.no_grad():
         for img, mask, id in tbar:
             img = img.to(device)
-            pred = model(img, True)
+            # pred = model(img, True)
+            pred = model(img)
 
             pred = torch.argmax(pred, dim=1).cpu()
 
