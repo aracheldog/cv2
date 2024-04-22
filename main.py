@@ -198,7 +198,7 @@ def train(model, trainloader, trainloader_u ,valloader, criterion, optimizer, ar
         # input image shape is torch.Size([16, 3, 321, 321])
         for i, ((img_x, mask_x), img_u_s) in enumerate(tbar):
             img_x, mask_x = img_x.to(cuda), mask_x.to(cuda)
-            img_u_s.to(cuda)
+            img_u_s = img_u_s.to(cuda)
 
             with torch.no_grad():
                 model.eval()
@@ -208,9 +208,6 @@ def train(model, trainloader, trainloader_u ,valloader, criterion, optimizer, ar
 
             model.train()
             num_lb, num_ulb = img_x.shape[0], img_u_s.shape[0]
-
-            img_u_s = img_u_s.to(cuda)
-
             preds = model(torch.cat((img_x, img_u_s)))
             pred_x, pred_u = preds.split([num_lb, num_ulb])
             loss_x = criterion(pred_x, mask_x)
