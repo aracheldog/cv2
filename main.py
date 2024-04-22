@@ -190,14 +190,16 @@ def train(model, trainloader, trainloader_u ,valloader, criterion, optimizer, ar
         trainloader.sampler.set_epoch(epoch)
         trainloader_u.sampler.set_epoch(epoch)
 
-        loader = zip(trainloader, trainloader_u)
+        # loader = zip(trainloader, trainloader_u)
 
         model.train()
-        tbar = tqdm(loader)
-
+        tbar = tqdm(trainloader)
+        trainloader_u_iter = iter(trainloader_u)
         # input image shape is torch.Size([16, 3, 321, 321])
-        for i, ((img_x, mask_x), img_u_s) in enumerate(tbar):
+        for i, ((img_x, mask_x)) in enumerate(tbar):
+
             img_x, mask_x = img_x.to(cuda), mask_x.to(cuda)
+            img_u_s, _ = next(trainloader_u_iter)
             img_u_s = img_u_s.to(cuda)
 
             with torch.no_grad():
