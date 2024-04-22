@@ -119,7 +119,7 @@ def main(args):
     trainloader = DataLoader(trainset, batch_size=args.batch_size,
                              pin_memory=True, num_workers=1, drop_last=True, sampler=train_sampler)
 
-    valset = SemiDataset(args.dataset, args.data_root, 'val', None)
+    valset = SemiDataset(args.dataset, args.data_root, 'val')
     val_sampler = DistributedSampler(valset)
     valloader = DataLoader(valset, batch_size=1,
                             pin_memory=True, num_workers=1, drop_last=False, sampler=val_sampler)
