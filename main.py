@@ -250,7 +250,7 @@ def label(model, dataloader, args):
     with torch.no_grad():
         for img, mask, id in tbar:
             img = img.to(device)
-            pred = model(img, True)
+            pred = model(img)
             # pred = model(img)
 
             pred = torch.argmax(pred, dim=1).cpu()

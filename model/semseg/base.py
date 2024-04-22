@@ -42,6 +42,6 @@ class BaseNet(nn.Module):
                 out = F.softmax(self.base_forward(cur_x.flip(3)), dim=1).flip(3)
                 out = F.interpolate(out, (h, w), mode='bilinear', align_corners=True)
                 final_result += out
-                torch.cuda.empty_cache()
+
 
             return final_result
