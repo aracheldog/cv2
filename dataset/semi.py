@@ -1,3 +1,7 @@
+from copy import deepcopy
+
+import numpy as np
+
 from dataset.transform import crop, hflip, normalize, resize, blur, cutout
 
 import math
@@ -41,7 +45,7 @@ class SemiDataset(Dataset):
         else:
             if mode == 'val':
                 id_path = 'dataset/splits/%s/val.txt' % name
-            elif mode == 'label' or mode == 'train_u':
+            elif mode == 'train_u':
                 id_path = unlabeled_id_path
             elif mode == 'train':
                 id_path = labeled_id_path
@@ -51,15 +55,16 @@ class SemiDataset(Dataset):
 
     def __getitem__(self, item):
         id = self.ids[item]
-        img = Image.open(os.path.join(self.root, id.split(' ')[0]))
-        mask = Image.open(os.path.join(self.root, id.split(' ')[1]))
+        img = Image.open(os.path.join(self.root, id.split(' ')[0])).convert('RGB')
+        mask = Image.fromarray(np.array(Image.open(os.path.join(self.root, id.split(' ')[1]))))
+
+        # id = self.ids[item]
+        # img = Image.open(os.path.join(self.root, id.split(' ')[0]))
+        # mask = Image.open(os.path.join(self.root, id.split(' ')[1]))
 
         if self.mode == 'val' or self.mode == 'label':
-            mask = Image.open(os.path.join(self.root, id.split(' ')[1]))
             img, mask = normalize(img, mask)
             return img, mask, id
-
-
 
         # basic augmentation on all training images
         base_size = 400 if self.name == 'pascal' else 2048
@@ -70,17 +75,15 @@ class SemiDataset(Dataset):
         if self.mode == 'train_u':
             return normalize(img)
 
-        # strong augmentation on unlabeled images
-        if self.mode == 'semi_train' and id in self.unlabeled_ids:
-            if random.random() < 0.8:
-                img = transforms.ColorJitter(0.5, 0.5, 0.5, 0.25)(img)
-            img = transforms.RandomGrayscale(p=0.2)(img)
-            img = blur(img, p=0.5)
-            img, mask = cutout(img, mask, p=0.5)
+        img_s1 = deepcopy(img)
 
-        img, mask = normalize(img, mask)
+        if random.random() < 0.8:
+            img_s1 = transforms.ColorJitter(0.5, 0.5, 0.5, 0.25)(img_s1)
+        img_s1 = transforms.RandomGrayscale(p=0.2)(img_s1)
+        img_s1 = blur(img_s1, p=0.5)
+        img_s1, mask = normalize(img_s1, mask)
+        return img_s1, mask
 
-        return img, mask
 
     def __len__(self):
         return len(self.ids)
