@@ -205,8 +205,8 @@ def train(model, trainloader, trainloader_u ,valloader, criterion, optimizer, ar
 
             model.train()
             num_lb, num_ulb = img_x.shape[0], img_u_s.shape[0]
-
-            preds = model(torch.cat((img_x, img_u_s)).to(device))
+            model.to(device)
+            preds = model(torch.cat((img_x, img_u_s)))
             pred_x, pred_u = preds.split([num_lb, num_ulb])
             loss_x = criterion(pred_x, mask_x)
             loss_u_w_fp = criterion(pred_u, pseudo_label)
