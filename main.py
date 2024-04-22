@@ -109,7 +109,7 @@ def main(args):
     global MODE
     MODE = 'train'
 
-    dataset_u = SemiDataset(args.dataset, args.data_root, 'train_u', None, args.unlabeled_id_path)
+    dataset_u = SemiDataset(args.dataset, args.data_root, 'train_u', args.crop_size, args.unlabeled_id_path)
     dataset_u_sampler = DistributedSampler(dataset_u)
     dataloader = DataLoader(dataset_u, batch_size=1, pin_memory=True, num_workers=1, drop_last=False, sampler=dataset_u_sampler)
 
