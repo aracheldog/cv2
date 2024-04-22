@@ -207,6 +207,7 @@ def train(model, trainloader, trainloader_u ,valloader, criterion, optimizer, ar
             model.train()
             num_lb, num_ulb = img_x.shape[0], img_u_s.shape[0]
             print("img_x: ", img_x.get_device())
+            img_u_s.to(device)
             print("img_u_s: ",img_u_s.get_device())
             preds = model(torch.cat((img_x, img_u_s)))
             pred_x, pred_u = preds.split([num_lb, num_ulb])
