@@ -173,11 +173,12 @@ def train(model, trainloader, trainloader_u ,valloader, criterion, optimizer, ar
     previous_best = 0.0
 
     global MODE
-    device = torch.device('cuda', args.local_rank)
+
     if MODE == 'train':
         checkpoints = []
 
     for epoch in range(args.epochs):
+        device = torch.device('cuda', args.local_rank)
         if args.local_rank == 0:
             print("\n==> Epoch %i, learning rate = %.4f\t\t\t\t\t previous best = %.2f" %
                 (epoch, optimizer.param_groups[0]["lr"], previous_best))
@@ -205,8 +206,8 @@ def train(model, trainloader, trainloader_u ,valloader, criterion, optimizer, ar
 
             model.train()
             num_lb, num_ulb = img_x.shape[0], img_u_s.shape[0]
-            combined = torch.cat((img_x, img_u_s)).to(device)
-            preds = model(combined)
+
+            preds = model(torch.cat((img_x, img_u_s)))
             pred_x, pred_u = preds.split([num_lb, num_ulb])
             loss_x = criterion(pred_x, mask_x)
             loss_u_w_fp = criterion(pred_u, pseudo_label)
