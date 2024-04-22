@@ -169,7 +169,7 @@ def main(args):
 def train(model, trainloader, trainloader_u ,valloader, criterion, optimizer, args):
     iters = 0
     total_iters = len(trainloader) * args.epochs
-
+    device = torch.device('cuda', args.local_rank)
     previous_best = 0.0
 
     global MODE
@@ -178,7 +178,6 @@ def train(model, trainloader, trainloader_u ,valloader, criterion, optimizer, ar
         checkpoints = []
 
     for epoch in range(args.epochs):
-        device = torch.device('cuda', args.local_rank)
         if args.local_rank == 0:
             print("\n==> Epoch %i, learning rate = %.4f\t\t\t\t\t previous best = %.2f" %
                 (epoch, optimizer.param_groups[0]["lr"], previous_best))
@@ -204,6 +203,7 @@ def train(model, trainloader, trainloader_u ,valloader, criterion, optimizer, ar
                 pred_u_pseudo = model(img_u_s).detach()
                 pseudo_label = pred_u_pseudo.argmax(dim=1)
 
+            device = torch.device('cuda', args.local_rank)
             model.train()
             num_lb, num_ulb = img_x.shape[0], img_u_s.shape[0]
 
