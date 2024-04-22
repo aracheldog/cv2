@@ -10,8 +10,7 @@ from model.semseg.deeplabv3plus import DeepLabV3Plus
 from model.semseg.pspnet import PSPNet
 # from torchsummary import summary
 from utils import count_params, meanIOU, color_map
-import warnings
-warnings.filterwarnings("ignore")
+
 
 import argparse
 from copy import deepcopy
@@ -103,7 +102,7 @@ def main(args):
     model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
     device = torch.device('cuda', args.local_rank)
     model.to(device)
-    model = torch.nn.parallel.DistributedDataParallel(model,device_ids=[args.local_rank], output_device=args.local_rank,find_unused_parameters=True)
+    model = torch.nn.parallel.DistributedDataParallel(model,device_ids=[args.local_rank], output_device=args.local_rank,find_unused_parameters=False)
 
 
     global MODE
