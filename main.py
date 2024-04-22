@@ -153,7 +153,19 @@ def main(args):
         trainloader = DataLoader(trainset, batch_size=args.batch_size,
                                  pin_memory=True, num_workers=16, drop_last=True, sampler=trainset_sampler)
 
-        model, optimizer = init_basic_elems(args)
+        model = DeepLabV3Plus(args.backbone, 21)
+        head_lr_multiple = 10.0
+        optimizer = SGD([{'params': model.backbone.parameters(), 'lr': args.lr},
+                         {'params': [param for name, param in model.named_parameters()
+                                     if 'backbone' not in name],
+                          'lr': args.lr * head_lr_multiple}],
+                        lr=args.lr, momentum=0.9, weight_decay=1e-4)
+        criterion = CrossEntropyLoss(ignore_index=255).cuda(args.local_rank)
+        model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
+        device = torch.device('cuda', args.local_rank)
+        model.to(device)
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank],
+                                                          output_device=args.local_rank, find_unused_parameters=False)
 
         train(model, trainloader, valloader, criterion, optimizer, args)
 
