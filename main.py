@@ -109,9 +109,12 @@ def main(args):
     global MODE
     MODE = 'train'
 
+    dataset_u = SemiDataset(args.dataset, args.data_root, 'train_u', None, None, args.unlabeled_id_path)
+    dataset_u_sampler = DistributedSampler(dataset_u)
+    dataloader = DataLoader(dataset_u, batch_size=1, pin_memory=True, num_workers=1, drop_last=False, sampler=dataset_u_sampler)
+
     # labelled dataset
-    trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size, args.labeled_id_path)
-    trainset.ids = 2 * trainset.ids if len(trainset.ids) < 200 else trainset.ids
+    trainset = SemiDataset(args.dataset, args.data_root, 'train_l', args.crop_size, args.labeled_id_path, nsample=len(dataset_u.ids))
     train_sampler = DistributedSampler(trainset)
     trainloader = DataLoader(trainset, batch_size=args.batch_size,
                              pin_memory=True, num_workers=1, drop_last=True, sampler=train_sampler)
@@ -121,9 +124,7 @@ def main(args):
     valloader = DataLoader(valset, batch_size=1,
                             pin_memory=True, num_workers=1, drop_last=False, sampler=val_sampler)
 
-    dataset_u = SemiDataset(args.dataset, args.data_root, 'train_u', None, None, args.unlabeled_id_path)
-    dataset_u_sampler = DistributedSampler(dataset_u)
-    dataloader = DataLoader(dataset_u, batch_size=1, pin_memory=True, num_workers=1, drop_last=False, sampler=dataset_u_sampler)
+
 
     # <====================== Supervised training with labeled images (SupOnly) ======================>
     if  args.local_rank == 0:
