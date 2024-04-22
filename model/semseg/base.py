@@ -27,7 +27,7 @@ class BaseNet(nn.Module):
 
         else:
             h, w = x.shape[-2:]
-            scales = [0.5, 0.75, 1.0, 1.5, 2.0]
+            scales = [0.5,  1.0,  2.0]
 
             final_result = None
 
