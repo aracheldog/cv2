@@ -36,7 +36,7 @@ class DeepLabV3Plus(BaseNet):
 
         # low_level_channels = 4 * 64 = 256
         low_level_channels = self.backbone.channels[0]
-        #  4 * 512 = 2058
+        #  4 * 512 = 2048
         high_level_channels = self.backbone.channels[-1]
 
         self.head = ASPPModule(high_level_channels, (12, 24, 36))
@@ -45,7 +45,7 @@ class DeepLabV3Plus(BaseNet):
                                     nn.BatchNorm2d(48),
                                     nn.ReLU(True))
 
-        self.attention = SelfAttention(high_level_channels // 8)
+        self.attention = SelfAttention(48)
 
         # self.fuse = nn.Sequential(nn.Conv2d(high_level_channels // 8 + 48, 256, 3, padding=1, bias=False),
         #                           nn.BatchNorm2d(256),
@@ -75,10 +75,8 @@ class DeepLabV3Plus(BaseNet):
 
         c4 = self.head(c4)
         c4 = F.interpolate(c4, size=c1.shape[-2:], mode="bilinear", align_corners=True)
-
         c1 = self.reduce(c1)
-
-        c4_attended = self.attention(c4)
+        c1 = self.attention(c1)
         out = torch.cat([c1, c4], dim=1)
         out = self.fuse(out)
         out = self.classifier(out)
