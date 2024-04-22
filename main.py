@@ -236,7 +236,10 @@ def train(model, trainloader, valloader, criterion, optimizer, args):
         mIOU *= 100.0
         if mIOU > previous_best:
             if previous_best != 0:
-                os.remove(os.path.join(args.save_path, '%s_%s_%.2f.pth' % (args.model, args.backbone, previous_best)))
+                file_path = os.path.join(args.save_path, '%s_%s_%.2f.pth' % (args.model, args.backbone, previous_best))
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+
             previous_best = mIOU
             torch.save(model.module.state_dict(),
                        os.path.join(args.save_path, '%s_%s_%.2f.pth' % (args.model, args.backbone, mIOU)))
