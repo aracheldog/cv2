@@ -73,6 +73,7 @@ class SemiDataset(Dataset):
         img, mask = hflip(img, mask, p=0.5)
 
         if self.mode == 'train_u':
+            print(img)
             return normalize(img)
 
         img_s1 = deepcopy(img)
@@ -87,3 +88,5 @@ class SemiDataset(Dataset):
 
     def __len__(self):
         return len(self.ids)
+
+
