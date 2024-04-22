@@ -46,6 +46,7 @@ class SemiDataset(Dataset):
             if mode == 'val':
                 id_path = 'dataset/splits/%s/val.txt' % name
             elif mode == 'train_u':
+                print(unlabeled_id_path)
                 id_path = unlabeled_id_path
             elif mode == 'train':
                 id_path = labeled_id_path
@@ -57,6 +58,7 @@ class SemiDataset(Dataset):
         id = self.ids[item]
         img = Image.open(os.path.join(self.root, id.split(' ')[0])).convert('RGB')
         mask = Image.fromarray(np.array(Image.open(os.path.join(self.root, id.split(' ')[1]))))
+
 
         # id = self.ids[item]
         # img = Image.open(os.path.join(self.root, id.split(' ')[0]))
@@ -73,7 +75,7 @@ class SemiDataset(Dataset):
         img, mask = hflip(img, mask, p=0.5)
 
         if self.mode == 'train_u':
-            print(img)
+
             return normalize(img)
 
         img_s1 = deepcopy(img)
