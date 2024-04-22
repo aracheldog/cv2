@@ -149,8 +149,9 @@ def main(args):
 
         trainset = SemiDataset(args.dataset, args.data_root, MODE, args.crop_size,
                                args.labeled_id_path, args.unlabeled_id_path, args.pseudo_mask_path)
+        trainset_sampler = DistributedSampler(trainset)
         trainloader = DataLoader(trainset, batch_size=args.batch_size,
-                                 pin_memory=True, num_workers=16, drop_last=True)
+                                 pin_memory=True, num_workers=16, drop_last=True, sampler=trainset_sampler)
 
         model, optimizer = init_basic_elems(args)
 
