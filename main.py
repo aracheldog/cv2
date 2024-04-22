@@ -102,7 +102,7 @@ def main(args):
     model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
     device = torch.device('cuda', args.local_rank)
     model.to(device)
-    model = torch.nn.parallel.DistributedDataParallel(model,device_ids=[args.local_rank], output_device=args.local_rank,find_unused_parameters=False)
+    model = torch.nn.parallel.DistributedDataParallel(model,device_ids=[args.local_rank], output_device=args.local_rank,find_unused_parameters=True)
 
 
     global MODE
