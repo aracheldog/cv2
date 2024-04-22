@@ -203,11 +203,11 @@ def train(model, trainloader, trainloader_u ,valloader, criterion, optimizer, ar
                 pred_u_pseudo = model(img_u_s).detach()
                 pseudo_label = pred_u_pseudo.argmax(dim=1)
 
-            device = torch.device('cuda', args.local_rank)
+            model.to(device)
             model.train()
             num_lb, num_ulb = img_x.shape[0], img_u_s.shape[0]
 
-            preds = model(torch.cat((img_x, img_u_s)))
+            preds = model()
             pred_x, pred_u = preds.split([num_lb, num_ulb])
             loss_x = criterion(pred_x, mask_x)
             loss_u_w_fp = criterion(pred_u, pseudo_label)
